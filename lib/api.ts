@@ -42,9 +42,9 @@ export const adminLogin = (email: string, password: string) =>
   api.post("/accounts/login", { email, password, role: "ADMIN" });
 
 // Dashboard
-export const getDashboardStats = () => api.get("/adminpanel/dashboard");
+export const getDashboardStats = () => api.get("/dashboard/stats");
 export const getMonthlyRevenue = (year: number) =>
-  api.get(`/adminpanel/revenue?year=${year}`);
+  api.get(`/adminpanel/monthly-revenue?year=${year}`);
 
 // Courses — POST is /adminpanel/course, GET list is /courses (public)
 export const getCourses = (page = 1, limit = 50) =>
@@ -160,9 +160,21 @@ export const createBrand = (data: FormData) =>
 export const deleteBrand = (id: string) => api.delete(`/adminpanel/feature-brands/${id}`);
 
 // Discounts
-export const getDiscounts = () => api.get("/adminpanel/discounts");
-export const createDiscount = (data: object) => api.post("/adminpanel/discounts", data);
-export const deleteDiscount = (id: string) => api.delete(`/adminpanel/discounts/${id}`);
+export const getDiscounts = () => api.get("/adminpanel/discount-coupons");
+export const createDiscount = (data: object) => api.post("/adminpanel/discount-coupon", data);
+export const deleteDiscount = (id: string) => api.delete(`/adminpanel/discount-coupon/${id}`);
+
+// Creators
+export const createCreator = (data: FormData) =>
+  api.post("/adminpanel/creator", data, { headers: { "Content-Type": "multipart/form-data" } });
+export const updateCreator = (id: string, data: FormData) =>
+  api.put(`/adminpanel/creator/${id}`, data, { headers: { "Content-Type": "multipart/form-data" } });
+export const deleteCreator = (id: string) => api.delete(`/adminpanel/creator/${id}`);
+
+// Authors
+export const createAuthor = (data: FormData) =>
+  api.post("/adminpanel/author", data, { headers: { "Content-Type": "multipart/form-data" } });
+export const deleteAuthor = (id: string) => api.delete(`/adminpanel/author/${id}`);
 
 // Events
 export const getEvents = (page = 1, limit = 50) => api.get(`/adminpanel/events?page=${page}&limit=${limit}`);

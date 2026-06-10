@@ -4,13 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { getVideoAnalytics } from "@/lib/api";
 import { BarChart3, Loader2, Monitor, Smartphone, Tablet } from "lucide-react";
 
-interface VideoAnalytic {
+interface VideoStat {
   productId: string;
-  productName?: string;
+  productName: string;
   totalViews: number;
   avgWatchDuration: number;
   avgCompletionRate: number;
-  deviceBreakdown?: { mobile: number; desktop: number; tablet: number };
+  deviceBreakdown: { mobile: number; desktop: number; tablet: number };
 }
 
 function StatCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
@@ -30,7 +30,47 @@ export default function AnalyticsPage() {
     queryKey: ["video-analytics"],
     queryFn: async () => {
       const { data } = await getVideoAnalytics();
-      return data?.data;
+      const raw = data?.data;
+      const rawAnalytics: any[] = raw?.analytics || [];
+      const summary = raw?.summary || {};
+
+      // Aggregate raw records by productId
+      const byProduct: Record<string, VideoStat> = {};
+      for (const rec of rawAnalytics) {
+        const pid = rec.productId;
+        if (!byProduct[pid]) {
+          byProduct[pid] = {
+            productId: pid,
+            productName: rec.product?.name || pid.slice(0, 12),
+            totalViews: 0,
+            avgWatchDuration: 0,
+            avgCompletionRate: 0,
+            deviceBreakdown: { mobile: 0, desktop: 0, tablet: 0 },
+          };
+        }
+        byProduct[pid].totalViews += 1;
+        byProduct[pid].avgWatchDuration += rec.watchDuration || 0;
+        byProduct[pid].avgCompletionRate += rec.completionRate || 0;
+        const dev = (rec.deviceType || "").toLowerCase();
+        if (dev === "mobile") byProduct[pid].deviceBreakdown.mobile += 1;
+        else if (dev === "tablet") byProduct[pid].deviceBreakdown.tablet += 1;
+        else byProduct[pid].deviceBreakdown.desktop += 1;
+      }
+      for (const a of Object.values(byProduct)) {
+        if (a.totalViews > 0) {
+          a.avgWatchDuration = a.avgWatchDuration / a.totalViews;
+          a.avgCompletionRate = a.avgCompletionRate / a.totalViews;
+        }
+      }
+
+      return {
+        analytics: Object.values(byProduct),
+        summary: {
+          totalViews: summary.totalViews || 0,
+          averageWatchTime: summary.averageWatchTime || 0,
+          averageCompletionRate: summary.averageCompletionRate || 0,
+        },
+      };
     },
   });
 
@@ -43,18 +83,16 @@ export default function AnalyticsPage() {
   }
 
   const analytics = data?.analytics || [];
-  const summary = data?.summary || {};
+  const summary = data?.summary || { totalViews: 0, averageWatchTime: 0, averageCompletionRate: 0 };
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Total Video Views" value={(summary.totalViews || 0).toLocaleString()} icon={<BarChart3 size={18} />} />
-        <StatCard label="Avg Watch Duration" value={`${Math.round(summary.avgWatchDuration || 0)}s`} icon={<BarChart3 size={18} />} />
-        <StatCard label="Avg Completion Rate" value={`${Math.round(summary.avgCompletionRate || 0)}%`} icon={<BarChart3 size={18} />} />
+        <StatCard label="Total Video Views" value={(summary.totalViews).toLocaleString()} icon={<BarChart3 size={18} />} />
+        <StatCard label="Avg Watch Duration" value={`${Math.round(summary.averageWatchTime)}s`} icon={<BarChart3 size={18} />} />
+        <StatCard label="Avg Completion Rate" value={`${Math.round(summary.averageCompletionRate)}%`} icon={<BarChart3 size={18} />} />
       </div>
 
-      {/* Analytics Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">
           <h2 className="font-semibold text-slate-800">Video Performance</h2>
@@ -77,27 +115,24 @@ export default function AnalyticsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {analytics.map((a: VideoAnalytic) => (
+              {analytics.map((a) => (
                 <tr key={a.productId} className="hover:bg-slate-50">
-                  <td className="px-6 py-3 font-medium text-slate-800">{a.productName || a.productId.slice(0, 12)}</td>
+                  <td className="px-6 py-3 font-medium text-slate-800">{a.productName}</td>
                   <td className="px-6 py-3">{a.totalViews.toLocaleString()}</td>
                   <td className="px-6 py-3">{Math.round(a.avgWatchDuration)}s</td>
                   <td className="px-6 py-3">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-slate-100 rounded-full h-1.5 max-w-20">
-                        <div
-                          className="bg-indigo-600 h-1.5 rounded-full"
-                          style={{ width: `${Math.min(a.avgCompletionRate, 100)}%` }}
-                        />
+                        <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${Math.min(a.avgCompletionRate, 100)}%` }} />
                       </div>
                       <span className="text-slate-600">{Math.round(a.avgCompletionRate)}%</span>
                     </div>
                   </td>
                   <td className="px-6 py-3">
                     <div className="flex items-center gap-2 text-slate-500 text-xs">
-                      <Smartphone size={12} /> {a.deviceBreakdown?.mobile || 0}
-                      <Monitor size={12} /> {a.deviceBreakdown?.desktop || 0}
-                      <Tablet size={12} /> {a.deviceBreakdown?.tablet || 0}
+                      <Smartphone size={12} /> {a.deviceBreakdown.mobile}
+                      <Monitor size={12} /> {a.deviceBreakdown.desktop}
+                      <Tablet size={12} /> {a.deviceBreakdown.tablet}
                     </div>
                   </td>
                 </tr>

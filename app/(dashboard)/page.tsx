@@ -10,17 +10,15 @@ interface DashboardStats {
   totalCourses: number;
   totalEarnings: number;
   dailyEarnings: number;
-  purchasedCustomers?: number;
-  nonPurchasedCustomers?: number;
 }
 
 interface Order {
   id: string;
   transactionId: string;
-  payableAmount: number;
+  paidAmount: string;
   paymentType: string;
   createdAt: string;
-  customer?: { name: string; email: string };
+  customer?: { name: string; user?: { email: string } };
 }
 
 function StatCard({
@@ -47,7 +45,13 @@ export default function DashboardPage() {
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
       const { data } = await getDashboardStats();
-      return data?.data as DashboardStats;
+      const d = data?.Data;
+      return {
+        totalCustomers: d?.total_customer ?? 0,
+        totalCourses: d?.total_courses ?? 0,
+        totalEarnings: d?.total_earnings ?? 0,
+        dailyEarnings: d?.todays_earnings ?? 0,
+      } as DashboardStats;
     },
   });
 
@@ -143,10 +147,10 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-6 py-3">
                       <p className="font-medium text-slate-800">{order.customer?.name || "—"}</p>
-                      <p className="text-xs text-slate-400">{order.customer?.email}</p>
+                      <p className="text-xs text-slate-400">{order.customer?.user?.email || "—"}</p>
                     </td>
                     <td className="px-6 py-3 font-semibold text-slate-800">
-                      {formatCurrency(order.payableAmount)}
+                      {formatCurrency(parseFloat(order.paidAmount || "0"))}
                     </td>
                     <td className="px-6 py-3">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
