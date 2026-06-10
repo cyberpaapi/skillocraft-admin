@@ -9,12 +9,12 @@ import { useState } from "react";
 interface Order {
   id: string;
   transactionId: string;
-  totalAmount: number;
-  payableAmount: number;
+  totalAmount: string;
+  paidAmount: string;
   paymentType: string;
   status: string;
   createdAt: string;
-  customer?: { name: string; email: string };
+  customer?: { name: string; user?: { email: string } };
   course?: { name: string }[];
 }
 
@@ -77,10 +77,10 @@ export default function OrdersPage() {
                   </td>
                   <td className="px-6 py-3">
                     <p className="font-medium text-slate-800">{order.customer?.name || "—"}</p>
-                    <p className="text-xs text-slate-400">{order.customer?.email}</p>
+                    <p className="text-xs text-slate-400">{order.customer?.user?.email}</p>
                   </td>
                   <td className="px-6 py-3 text-slate-500">{order.course?.length || 0} course(s)</td>
-                  <td className="px-6 py-3 font-semibold">{formatCurrency(order.payableAmount)}</td>
+                  <td className="px-6 py-3 font-semibold">{formatCurrency(parseFloat(order.paidAmount || '0'))}</td>
                   <td className="px-6 py-3">
                     <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                       {order.paymentType}
