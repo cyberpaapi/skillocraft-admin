@@ -180,3 +180,6 @@ export const getVideoAnalytics = () => api.get("/adminpanel/video-analytics");
 export const getReferralSettings = () => api.get("/referral/settings");
 export const updateReferralSettings = (data: { discountPercent: number; earningsPercent: number }) =>
   api.put("/adminpanel/referral-settings", data);
+export const getPayoutRequests = () => api.get("/adminpanel/payout-requests");
+export const updatePayoutRequest = (id: string, data: { status: string; note?: string }) =>
+  api.patch(`/adminpanel/payout-requests/${id}`, data);

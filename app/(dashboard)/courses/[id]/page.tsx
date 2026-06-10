@@ -382,9 +382,19 @@ export default function CourseDetailPage() {
                         </span>
                       )}
                       {(!product.videoStatus || product.videoStatus === "idle" || product.videoStatus === "uploading") && (
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
-                          No video
-                        </span>
+                        product.videoLink ? (
+                          <button
+                            onClick={() => confirmUpload(product.id).then(() => queryClient.invalidateQueries({ queryKey: ["course", id] }))}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 hover:bg-orange-200"
+                            title="Video is uploaded but status not confirmed — click to fix"
+                          >
+                            <Zap size={10} /> Mark Ready
+                          </button>
+                        ) : (
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">
+                            No video
+                          </span>
+                        )
                       )}
                     </>
                   )}
