@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getMonthlyRevenue, getOrders } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Loader2, IndianRupee, BookOpen, CalendarDays } from "lucide-react";
+import { Loader2, IndianRupee, BookOpen, CalendarDays, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
@@ -24,7 +24,7 @@ export default function RevenuePage() {
     queryKey: ["monthly-revenue", year],
     queryFn: async () => {
       const { data } = await getMonthlyRevenue(year);
-      return (data?.data || []) as { month: number; revenue: number; courseRevenue: number; eventRevenue: number }[];
+      return (data?.data || []) as { month: number; revenue: number; courseRevenue: number; eventRevenue: number; marketplaceRevenue: number }[];
     },
   });
 
@@ -40,11 +40,13 @@ export default function RevenuePage() {
     month,
     Courses: revenueData?.[i]?.courseRevenue || 0,
     Events: revenueData?.[i]?.eventRevenue || 0,
+    Marketplace: revenueData?.[i]?.marketplaceRevenue || 0,
   }));
 
   const totalCourse = revenueData?.reduce((s, r) => s + (r.courseRevenue || 0), 0) || 0;
   const totalEvent = revenueData?.reduce((s, r) => s + (r.eventRevenue || 0), 0) || 0;
-  const totalRevenue = totalCourse + totalEvent;
+  const totalMarketplace = revenueData?.reduce((s, r) => s + (r.marketplaceRevenue || 0), 0) || 0;
+  const totalRevenue = totalCourse + totalEvent + totalMarketplace;
 
   const orders = ordersData || [];
 
@@ -57,6 +59,7 @@ export default function RevenuePage() {
             { label: `Total Revenue ${year}`, value: totalRevenue, icon: IndianRupee, color: "emerald" },
             { label: "Course Revenue", value: totalCourse, icon: BookOpen, color: "indigo" },
             { label: "Event Revenue", value: totalEvent, icon: CalendarDays, color: "violet" },
+            { label: "Marketplace Revenue", value: totalMarketplace, icon: ShoppingBag, color: "amber" },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="bg-white border border-slate-200 rounded-xl px-5 py-4 shadow-sm flex items-center gap-4">
               <div className={`w-10 h-10 rounded-xl bg-${color}-50 flex items-center justify-center`}>
@@ -96,7 +99,8 @@ export default function RevenuePage() {
               />
               <Legend />
               <Bar dataKey="Courses" stackId="a" fill="#4f46e5" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Events" stackId="a" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Events" stackId="a" fill="#7c3aed" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="Marketplace" stackId="a" fill="#d97706" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -113,6 +117,7 @@ export default function RevenuePage() {
               <th className="px-6 py-3 font-medium">Month</th>
               <th className="px-6 py-3 font-medium text-right">Courses</th>
               <th className="px-6 py-3 font-medium text-right">Events</th>
+              <th className="px-6 py-3 font-medium text-right">Marketplace</th>
               <th className="px-6 py-3 font-medium text-right">Total</th>
             </tr>
           </thead>
@@ -122,7 +127,8 @@ export default function RevenuePage() {
                 <td className="px-6 py-3 font-medium text-slate-800">{row.month} {year}</td>
                 <td className="px-6 py-3 text-right text-slate-600">{formatCurrency(row.Courses)}</td>
                 <td className="px-6 py-3 text-right text-slate-600">{formatCurrency(row.Events)}</td>
-                <td className="px-6 py-3 text-right font-semibold text-slate-800">{formatCurrency(row.Courses + row.Events)}</td>
+                <td className="px-6 py-3 text-right text-slate-600">{formatCurrency(row.Marketplace)}</td>
+                <td className="px-6 py-3 text-right font-semibold text-slate-800">{formatCurrency(row.Courses + row.Events + row.Marketplace)}</td>
               </tr>
             ))}
           </tbody>
