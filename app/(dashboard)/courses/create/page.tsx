@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getCategories, getCreators, createCourse, createCategory, api } from "@/lib/api";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Loader2, Plus, Check } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, Plus, Check, Video, X } from "lucide-react";
 import Link from "next/link";
 
 interface Category { id: string; name: string; }
@@ -61,6 +61,7 @@ export default function CreateCoursePage() {
   const [loading, setLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [teaserFile, setTeaserFile] = useState<File | null>(null);
 
   // Category select state
   const [categoryId, setCategoryId] = useState("");
@@ -192,6 +193,7 @@ export default function CreateCoursePage() {
       fd.append("whatsAppLink", (form.elements.namedItem("whatsAppLink") as HTMLInputElement).value);
       fd.append("featured", (form.elements.namedItem("featured") as HTMLInputElement).checked ? "true" : "false");
       if (imageFile) fd.append("image", imageFile);
+      if (teaserFile) fd.append("teaserVideo", teaserFile);
       const pdfFileInput = form.elements.namedItem("pdfFile") as HTMLInputElement;
       if (pdfFileInput?.files?.[0]) fd.append("pdfFile", pdfFileInput.files[0]);
 
@@ -381,6 +383,33 @@ export default function CreateCoursePage() {
               </div>
             )}
             <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+          </label>
+        </div>
+
+        {/* Teaser Video */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <h2 className="font-medium text-slate-700 text-sm uppercase tracking-wide mb-1">Teaser Video</h2>
+          <p className="text-xs text-slate-400 mb-4">Short preview video shown on the course page before purchase. Fallback is the course image.</p>
+          <label className="cursor-pointer block">
+            <div className={`border-2 border-dashed rounded-lg p-5 text-center transition-colors ${teaserFile ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-400"}`}>
+              {teaserFile ? (
+                <div className="flex items-center justify-center gap-2 text-indigo-700">
+                  <Video size={16} />
+                  <span className="text-sm font-medium truncate max-w-xs">{teaserFile.name}</span>
+                  <button type="button" onClick={(e) => { e.preventDefault(); setTeaserFile(null); }}
+                    className="ml-2 text-slate-400 hover:text-red-500">
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Upload size={20} className="mx-auto mb-1 text-slate-400" />
+                  <p className="text-sm text-slate-500">Click to upload teaser video</p>
+                  <p className="text-xs text-slate-400 mt-1">MP4, max 500MB</p>
+                </>
+              )}
+            </div>
+            <input type="file" accept="video/*" className="hidden" onChange={(e) => setTeaserFile(e.target.files?.[0] || null)} />
           </label>
         </div>
 

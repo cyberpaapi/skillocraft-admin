@@ -75,6 +75,9 @@ export const confirmUpload = (productId: string) =>
 export const startHls = (productId: string) =>
   api.post(`/adminpanel/products/${productId}/start-hls`);
 
+export const reorderLessons = (items: { id: string; order: number }[]) =>
+  api.patch("/adminpanel/products/reorder", { items });
+
 // Upload directly to R2 using a presigned PUT URL (XHR for progress)
 export const uploadToR2 = (
   presignedUrl: string,
