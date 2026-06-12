@@ -64,15 +64,21 @@ export default function BlogsPage() {
     e.preventDefault();
     if (!imageFile) { toast.error("Please upload a featured image"); return; }
     const form = e.currentTarget;
+    const authorName = (form.elements.namedItem("authorName") as HTMLInputElement).value.trim();
+    const authorList = authors || [];
+    const matchedAuthor = authorList.find(
+      (a) => a.name.toLowerCase() === authorName.toLowerCase()
+    );
+    if (!matchedAuthor) {
+      toast.error(`No author found with name "${authorName}". Please create the author first in the Authors tab.`);
+      return;
+    }
     const fd = new FormData();
-    const bodyData = {
-      title: (form.elements.namedItem("title") as HTMLInputElement).value,
-      authorId: (form.elements.namedItem("authorId") as HTMLSelectElement).value,
-      categoryId: (form.elements.namedItem("categoryId") as HTMLSelectElement).value,
-      shortDescription: (form.elements.namedItem("shortDescription") as HTMLInputElement).value,
-      longDescription: (form.elements.namedItem("longDescription") as HTMLTextAreaElement).value,
-    };
-    fd.append("data", JSON.stringify(bodyData));
+    fd.append("title", (form.elements.namedItem("title") as HTMLInputElement).value);
+    fd.append("authorId", matchedAuthor.id);
+    fd.append("categoryId", (form.elements.namedItem("categoryId") as HTMLSelectElement).value);
+    fd.append("shortDescription", (form.elements.namedItem("shortDescription") as HTMLInputElement).value);
+    fd.append("longDescription", (form.elements.namedItem("longDescription") as HTMLTextAreaElement).value);
     fd.append("image", imageFile);
     create(fd);
   };
@@ -143,12 +149,13 @@ export default function BlogsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Author *</label>
-                  <select name="authorId" required
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="">Select author</option>
-                    {(authors || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Author Name *</label>
+                  <input name="authorName" required placeholder="e.g. Roshni Kaur"
+                    list="author-suggestions"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <datalist id="author-suggestions">
+                    {(authors || []).map((a) => <option key={a.id} value={a.name} />)}
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Category *</label>

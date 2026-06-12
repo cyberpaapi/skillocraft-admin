@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateCreator, deleteCreator } from "@/lib/api";
 import { api } from "@/lib/api";
 import { Plus, UserCheck, Loader2, X, Upload, Pencil, Trash2 } from "lucide-react";
+import { imgSrc } from "@/lib/utils";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
@@ -78,7 +79,7 @@ function CreatorModal({
             <label className="block text-sm font-medium text-slate-700 mb-1">Photo {mode === "add" ? "*" : "(leave empty to keep current)"}</label>
             {mode === "edit" && creator?.imageLink && !imageFile && (
               <div className="mb-2 flex items-center gap-2">
-                <img src={creator.imageLink} alt="" className="w-10 h-10 rounded-full object-cover" />
+                <img src={imgSrc(creator.imageLink)} alt="" className="w-10 h-10 rounded-full object-cover" />
                 <span className="text-xs text-slate-400">Current photo</span>
               </div>
             )}
@@ -139,7 +140,7 @@ export default function CreatorsPage() {
             : items.map((c) => (
               <div key={c.id} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4 group">
                 <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg flex-shrink-0 overflow-hidden">
-                  {c.imageLink ? <img src={c.imageLink} alt={c.name} className="w-full h-full object-cover" /> : c.name.charAt(0)}
+                  {c.imageLink ? <img src={imgSrc(c.imageLink)} alt={c.name} className="w-full h-full object-cover" /> : c.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-800">{c.name}</p>

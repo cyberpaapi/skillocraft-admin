@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createGallery, deleteGallery } from "@/lib/api";
 import { api } from "@/lib/api";
 import { Plus, Image as ImageIcon, Loader2, X, Upload, Trash2 } from "lucide-react";
+import { imgSrc } from "@/lib/utils";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
@@ -68,7 +69,7 @@ export default function GalleryPage() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((item) => {
-            const src = item.imageLink || item.image || "";
+            const src = imgSrc(item.imageLink || item.image);
             return (
               <div key={item.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm aspect-square relative group">
                 <img src={src} alt={item.description || ""} className="w-full h-full object-cover" />

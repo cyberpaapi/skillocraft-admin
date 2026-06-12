@@ -23,7 +23,7 @@ export default function TestimonialsPage() {
   });
 
   const { mutate: create, isPending: creating } = useMutation({
-    mutationFn: (fd: FormData) => api.post("/adminpanel/testimonials", fd, { headers: { "Content-Type": "multipart/form-data" } }),
+    mutationFn: (fd: FormData) => api.post("/testimonials", fd, { headers: { "Content-Type": "multipart/form-data" } }),
     onSuccess: () => {
       toast.success("Testimonial added");
       queryClient.invalidateQueries({ queryKey: ["testimonials"] });
@@ -35,7 +35,7 @@ export default function TestimonialsPage() {
   });
 
   const { mutate: remove } = useMutation({
-    mutationFn: (id: string) => api.delete(`/adminpanel/testimonials/${id}`),
+    mutationFn: (id: string) => api.delete(`/testimonials/${id}`),
     onSuccess: () => { toast.success("Deleted"); queryClient.invalidateQueries({ queryKey: ["testimonials"] }); },
     onError: () => toast.error("Failed to delete"),
   });

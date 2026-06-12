@@ -20,3 +20,12 @@ export function formatDate(date: string | Date) {
     year: "numeric",
   }).format(new Date(date));
 }
+
+const R2 = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
+
+export function imgSrc(link?: string | null, fallback = ''): string {
+  if (!link) return fallback;
+  if (link.startsWith('http://') || link.startsWith('https://')) return link;
+  if (!link.startsWith('/') && R2) return `${R2.replace(/\/$/, '')}/${link}`;
+  return link;
+}

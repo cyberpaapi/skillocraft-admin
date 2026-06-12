@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createBrand, deleteBrand } from "@/lib/api";
 import { api } from "@/lib/api";
 import { Plus, Star, Loader2, X, Upload, Trash2 } from "lucide-react";
+import { imgSrc } from "@/lib/utils";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
@@ -45,7 +46,7 @@ export default function BrandsPage() {
     if (!logoFile) { toast.error("Please upload a logo"); return; }
     const form = e.currentTarget;
     const fd = new FormData();
-    fd.append("image", logoFile);
+    fd.append("logo", logoFile);
     fd.append("brandUrl", (form.elements.namedItem("brandUrl") as HTMLInputElement).value);
     create(fd);
   };
@@ -67,7 +68,7 @@ export default function BrandsPage() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
           {items.map((b) => {
-            const src = b.logo || b.image || "";
+            const src = imgSrc(b.logo || b.image);
             return (
               <div key={b.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center justify-center h-24 relative group">
                 <img src={src} alt="" className="max-h-12 max-w-full object-contain" />
