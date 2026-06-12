@@ -7,7 +7,12 @@ import { toast } from "sonner";
 import { ArrowLeft, Upload, Loader2, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
-const EVENT_CATEGORIES = ["Baking", "Banking", "Perfume", "Makeup", "Cooking", "Healthcare", "Art & Craft", "Photography", "General", "Workshop", "Seminar", "Festival"];
+const EVENT_CATEGORIES = [
+  "Outdoor Live Events",
+  "Online Live Events",
+  "Explore New World",
+  "Baking", "Banking", "Perfume", "Makeup", "Cooking", "Healthcare", "Art & Craft", "Photography", "General", "Workshop", "Seminar", "Festival",
+];
 const CITIES = ["Mumbai", "Delhi-NCR", "Bengaluru", "Hyderabad", "Chandigarh", "Ahmedabad", "Pune", "Chennai", "Kolkata", "Kochi", "Online", "Other"];
 
 export default function CreateEventPage() {

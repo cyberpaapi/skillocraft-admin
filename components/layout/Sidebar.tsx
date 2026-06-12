@@ -8,7 +8,7 @@ import {
   LayoutDashboard, BookOpen, FolderOpen, Users, ShoppingCart,
   BarChart3, Tag, FileText, ChevronDown, LogOut, Settings,
   Image, Star, MessageSquare, Trophy, HelpCircle, Megaphone,
-  UserCheck, UserCog, Shield, CalendarDays, Gift,
+  UserCheck, UserCog, Shield, CalendarDays, Gift, ShoppingBag,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
   },
   { label: "Orders", href: "/orders", icon: <ShoppingCart size={18} /> },
   { label: "Events", href: "/events", icon: <CalendarDays size={18} /> },
+  { label: "Marketplace", href: "/marketplace", icon: <ShoppingBag size={18} /> },
   { label: "Discounts", href: "/discounts", icon: <Tag size={18} /> },
   { label: "Referral Program", href: "/referral", icon: <Gift size={18} /> },
   { label: "Revenue", href: "/revenue", icon: <BarChart3 size={18} /> },
