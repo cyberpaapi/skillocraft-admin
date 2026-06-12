@@ -21,11 +21,12 @@ export function formatDate(date: string | Date) {
   }).format(new Date(date));
 }
 
-const R2 = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export function imgSrc(link?: string | null, fallback = ''): string {
   if (!link) return fallback;
   if (link.startsWith('http://') || link.startsWith('https://')) return link;
-  if (!link.startsWith('/') && R2) return `${R2.replace(/\/$/, '')}/${link}`;
+  if (link.startsWith('/r2/') || link.startsWith('/uploads/')) return `${API}${link}`;
+  if (!link.startsWith('/')) return `${API}/r2/${link}`;
   return link;
 }
