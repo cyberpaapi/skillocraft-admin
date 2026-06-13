@@ -38,7 +38,7 @@ const navItems: NavItem[] = [
       { label: "Staff", href: "/users/staff" },
     ],
   },
-  { label: "Orders", href: "/orders", icon: <ShoppingCart size={18} /> },
+  { label: "Marketplace Orders", href: "/marketplace-orders", icon: <ShoppingCart size={18} /> },
   { label: "Events", href: "/events", icon: <CalendarDays size={18} /> },
   { label: "Marketplace", href: "/marketplace", icon: <ShoppingBag size={18} /> },
   { label: "Discounts", href: "/discounts", icon: <Tag size={18} /> },

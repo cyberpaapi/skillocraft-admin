@@ -78,6 +78,20 @@ export const startHls = (productId: string) =>
 export const reorderLessons = (items: { id: string; order: number }[]) =>
   api.patch("/adminpanel/products/reorder", { items });
 
+// Course FAQs
+export const getCourseFaqs = (courseId: string) =>
+  api.get(`/course-all-faqs/${courseId}`);
+export const createCourseFaq = (courseId: string, question: string, answer: string) =>
+  api.post("/adminpanel/course-faqs", { courseId, question, answer });
+export const deleteCourseFaq = (id: string) =>
+  api.delete(`/adminpanel/course-faqs/${id}`);
+
+// Course Reviews (admin)
+export const adminAddReview = (courseId: string, data: { reviewerName: string; details: string; ratting: number }) =>
+  api.post(`/adminpanel/courses/${courseId}/reviews`, data);
+export const adminDeleteReview = (id: string) =>
+  api.delete(`/adminpanel/reviews/${id}`);
+
 // Upload directly to R2 using a presigned PUT URL (XHR for progress)
 export const uploadToR2 = (
   presignedUrl: string,
@@ -114,9 +128,15 @@ export const getStaff = () => api.get("/adminpanel/staff");
 export const getCreators = () => api.get("/creators");
 export const getAuthors = () => api.get("/author");
 
-// Orders
+// Course Orders
 export const getOrders = (page = 1) =>
   api.get(`/adminpanel/orders?page=${page}&limit=50`);
+
+// Marketplace Orders
+export const getMarketplaceOrders = (page = 1, status?: string) =>
+  api.get(`/adminpanel/marketplace-orders?page=${page}&limit=50${status ? `&status=${status}` : ''}`);
+export const updateMarketplaceOrderStatus = (id: string, status: string) =>
+  api.patch(`/adminpanel/marketplace-orders/${id}/status`, { status });
 
 // Blogs
 export const getBlogs = () => api.get("/blogs");
