@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { Loader2, IndianRupee, BookOpen, CalendarDays, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import SuperAdminGate from "@/components/SuperAdminGate";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -51,6 +52,7 @@ export default function RevenuePage() {
   const orders = ordersData || [];
 
   return (
+    <SuperAdminGate>
     <div className="space-y-6">
       {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -180,5 +182,6 @@ export default function RevenuePage() {
         )}
       </div>
     </div>
+    </SuperAdminGate>
   );
 }

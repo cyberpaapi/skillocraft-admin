@@ -7,6 +7,7 @@ import { Plus, Trash2, Pencil, Loader2, CalendarDays, Search } from "lucide-reac
 import { toast } from "sonner";
 import { useState } from "react";
 import Link from "next/link";
+import SuperAdminGate from "@/components/SuperAdminGate";
 
 interface Event {
   id: string;
@@ -50,6 +51,7 @@ export default function EventsPage() {
   );
 
   return (
+    <SuperAdminGate>
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div className="relative">
@@ -142,5 +144,6 @@ export default function EventsPage() {
         </div>
       )}
     </div>
+    </SuperAdminGate>
   );
 }

@@ -34,8 +34,6 @@ const navItems: NavItem[] = [
     icon: <Users size={18} />,
     children: [
       { label: "Customers", href: "/users/customers" },
-      { label: "Admins", href: "/users/admins" },
-      { label: "Staff", href: "/users/staff" },
     ],
   },
   { label: "Marketplace Orders", href: "/marketplace-orders", icon: <ShoppingCart size={18} /> },

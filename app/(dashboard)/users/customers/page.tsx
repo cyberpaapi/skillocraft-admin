@@ -5,6 +5,7 @@ import { getCustomers } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Users, Loader2, Search } from "lucide-react";
 import { useState } from "react";
+import SuperAdminGate from "@/components/SuperAdminGate";
 
 interface Customer {
   id: string;
@@ -32,6 +33,7 @@ export default function CustomersPage() {
   );
 
   return (
+    <SuperAdminGate>
     <div className="space-y-5">
       <div className="relative w-72">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -84,5 +86,6 @@ export default function CustomersPage() {
         )}
       </div>
     </div>
+    </SuperAdminGate>
   );
 }

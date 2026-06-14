@@ -101,7 +101,7 @@ export default function SuccessPage() {
                   <td className="px-6 py-3 text-slate-500">{s.brand || "—"}</td>
                   <td className="px-6 py-3 text-slate-500">{s.earning || "—"}</td>
                   <td className="px-6 py-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${s.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{s.status}</span></td>
-                  <td className="px-6 py-3 text-slate-500">{formatDate(s.createdAt)}</td>
+                  <td className="px-6 py-3 text-slate-500">{s.createdAt ? formatDate(s.createdAt) : '—'}</td>
                   <td className="px-6 py-3 text-right">
                     <button onClick={() => { if (confirm("Delete this story?")) remove(s.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600"><Trash2 size={14} /></button>
                   </td>

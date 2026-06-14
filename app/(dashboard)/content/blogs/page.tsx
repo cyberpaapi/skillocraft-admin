@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBlogs, deleteBlog, getAuthors, getCategories } from "@/lib/api";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trash2, FileText, Loader2, X, Upload } from "lucide-react";
+import { Plus, Trash2, FileText, Loader2, X, Upload, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
@@ -16,6 +16,7 @@ export default function BlogsPage() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isFeatured, setIsFeatured] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -49,6 +50,7 @@ export default function BlogsPage() {
       queryClient.invalidateQueries({ queryKey: ["blogs"] });
       setShowModal(false);
       setImageFile(null);
+      setIsFeatured(false);
       formRef.current?.reset();
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to create blog"),
@@ -58,6 +60,16 @@ export default function BlogsPage() {
     mutationFn: (id: string) => deleteBlog(id),
     onSuccess: () => { toast.success("Blog deleted"); queryClient.invalidateQueries({ queryKey: ["blogs"] }); },
     onError: () => toast.error("Failed to delete"),
+  });
+
+  const { mutate: toggleFeatured } = useMutation({
+    mutationFn: ({ id, featured }: { id: string; featured: boolean }) => {
+      const fd = new FormData();
+      fd.append("featured", String(!featured));
+      return api.put(`/adminpanel/blogs/${id}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+    },
+    onSuccess: () => { toast.success("Updated"); queryClient.invalidateQueries({ queryKey: ["blogs"] }); },
+    onError: () => toast.error("Failed to update"),
   });
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -79,6 +91,7 @@ export default function BlogsPage() {
     fd.append("categoryId", (form.elements.namedItem("categoryId") as HTMLSelectElement).value);
     fd.append("shortDescription", (form.elements.namedItem("shortDescription") as HTMLInputElement).value);
     fd.append("longDescription", (form.elements.namedItem("longDescription") as HTMLTextAreaElement).value);
+    fd.append("featured", String(isFeatured));
     fd.append("image", imageFile);
     create(fd);
   };
@@ -116,9 +129,14 @@ export default function BlogsPage() {
                   <td className="px-6 py-3 font-medium text-slate-800 max-w-xs truncate">{blog.title}</td>
                   <td className="px-6 py-3 text-slate-500">{blog.author?.name || "—"}</td>
                   <td className="px-6 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${blog.isFeatured ? "bg-yellow-100 text-yellow-700" : "bg-slate-100 text-slate-500"}`}>
+                    <button
+                      onClick={() => toggleFeatured({ id: blog.id, featured: blog.isFeatured })}
+                      title={blog.isFeatured ? "Remove from Most Loved" : "Add to Most Loved Blogs"}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${blog.isFeatured ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" : "bg-slate-100 text-slate-500 hover:bg-yellow-50 hover:text-yellow-600"}`}
+                    >
+                      <Star size={11} className={blog.isFeatured ? "fill-yellow-500" : ""} />
                       {blog.isFeatured ? "Featured" : "Normal"}
-                    </span>
+                    </button>
                   </td>
                   <td className="px-6 py-3">
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${blog.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{blog.status}</span>
@@ -175,6 +193,19 @@ export default function BlogsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Content *</label>
                 <textarea name="longDescription" required rows={5} placeholder="Full blog content..."
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="featured-check"
+                  checked={isFeatured}
+                  onChange={(e) => setIsFeatured(e.target.checked)}
+                  className="w-4 h-4 accent-yellow-500"
+                />
+                <label htmlFor="featured-check" className="text-sm font-medium text-slate-700 cursor-pointer flex items-center gap-1">
+                  <Star size={14} className={isFeatured ? "text-yellow-500 fill-yellow-500" : "text-slate-400"} />
+                  Add to "Most Loved Blogs"
+                </label>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Featured Image *</label>

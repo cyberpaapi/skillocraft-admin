@@ -7,7 +7,7 @@ import { imgSrc } from "@/lib/utils";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
-interface GalleryItem { id: string; imageLink: string; image?: string; description?: string; status: string; }
+interface GalleryItem { id: string; imageLink: string; image?: string; description?: string; linkUrl?: string; status: string; }
 
 export default function GalleryPage() {
   const queryClient = useQueryClient();
@@ -49,6 +49,8 @@ export default function GalleryPage() {
     fd.append("image", imageFile);
     const desc = (form.elements.namedItem("description") as HTMLInputElement).value;
     if (desc) fd.append("description", desc);
+    const link = (form.elements.namedItem("linkUrl") as HTMLInputElement).value;
+    if (link) fd.append("linkUrl", link);
     create(fd);
   };
 
@@ -73,6 +75,11 @@ export default function GalleryPage() {
             return (
               <div key={item.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm aspect-square relative group">
                 <img src={src} alt={item.description || ""} className="w-full h-full object-cover" />
+                {item.linkUrl && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-xs text-white truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                    🔗 {item.linkUrl}
+                  </div>
+                )}
                 <button
                   onClick={() => { if (confirm("Delete this image?")) remove(item.id); }}
                   className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-red-600 text-white p-1.5 rounded-lg transition-opacity"
@@ -105,6 +112,12 @@ export default function GalleryPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Caption (optional)</label>
                 <input name="description" placeholder="e.g. Award ceremony 2024"
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Link URL (optional)</label>
+                <input name="linkUrl" type="url" placeholder="https://example.com"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <p className="text-xs text-slate-400 mt-1">When visitors click this image, they&apos;ll open this link</p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}

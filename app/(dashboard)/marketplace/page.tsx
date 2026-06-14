@@ -6,6 +6,7 @@ import { formatCurrency, imgSrc } from "@/lib/utils";
 import { Plus, Trash2, Pencil, Loader2, X, Upload, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
+import SuperAdminGate from "@/components/SuperAdminGate";
 
 interface MarketplaceProduct {
   id: string;
@@ -198,6 +199,7 @@ export default function MarketplacePage() {
   const products = data || [];
 
   return (
+    <SuperAdminGate>
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
@@ -279,5 +281,6 @@ export default function MarketplacePage() {
         />
       )}
     </div>
+    </SuperAdminGate>
   );
 }
