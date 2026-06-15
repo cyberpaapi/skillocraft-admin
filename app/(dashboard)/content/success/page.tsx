@@ -2,18 +2,26 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, getCategories, deleteSuccessStory } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trophy, Loader2, Trash2, X, Upload } from "lucide-react";
+import { imgSrc } from "@/lib/utils";
+import { Plus, Trophy, Loader2, Trash2, X, Upload, Settings, Video } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
-interface SuccessStory { id: string; name: string; designation?: string; brand?: string; earning?: string; status: string; createdAt: string; }
+interface SuccessStory { id: string; name: string; designation?: string; brand?: string; earning?: string; status: string; createdAt: string; imageLink?: string; coverPhoto?: string; }
 interface Category { id: string; name: string; }
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export default function SuccessPage() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [hunarTitle, setHunarTitle] = useState("");
+  const [hunarSubtitle, setHunarSubtitle] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -32,6 +40,18 @@ export default function SuccessPage() {
       return (data?.data || []) as Category[];
     },
   });
+
+  const { data: settings } = useQuery({
+    queryKey: ["site-settings-success"],
+    queryFn: async () => {
+      const { data } = await api.get("/site-settings?keys=success_hunar_title,success_hunar_subtitle,success_hero_video");
+      return data?.data || {};
+    },
+    onSuccess: (d: any) => {
+      if (d.success_hunar_title) setHunarTitle(d.success_hunar_title);
+      if (d.success_hunar_subtitle) setHunarSubtitle(d.success_hunar_subtitle);
+    },
+  } as any);
 
   const { mutate: create, isPending: creating } = useMutation({
     mutationFn: (fd: FormData) => api.post("/adminpanel/success", fd, { headers: { "Content-Type": "multipart/form-data" } }),
@@ -67,10 +87,45 @@ export default function SuccessPage() {
     create(fd);
   };
 
+  const saveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      await Promise.all([
+        api.post("/adminpanel/site-settings", { key: "success_hunar_title", value: hunarTitle }),
+        api.post("/adminpanel/site-settings", { key: "success_hunar_subtitle", value: hunarSubtitle }),
+      ]);
+      toast.success("Page settings saved");
+      queryClient.invalidateQueries({ queryKey: ["site-settings-success"] });
+    } catch {
+      toast.error("Failed to save settings");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const uploadHeroVideo = async () => {
+    if (!videoFile) return;
+    setUploadingVideo(true);
+    try {
+      const fd = new FormData();
+      fd.append("key", "success_hero_video");
+      fd.append("video", videoFile);
+      await api.post("/adminpanel/site-settings/video", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      toast.success("Hero video updated");
+      setVideoFile(null);
+      queryClient.invalidateQueries({ queryKey: ["site-settings-success"] });
+    } catch {
+      toast.error("Failed to upload video");
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
   const items = data || [];
+  const currentVideo = (settings as any)?.success_hero_video;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex justify-end">
         <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg">
           <Plus size={16} /> Add Story
@@ -86,23 +141,34 @@ export default function SuccessPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500 text-xs uppercase tracking-wide bg-slate-50 border-b border-slate-100">
-                <th className="px-6 py-3 font-medium">Name</th>
-                <th className="px-6 py-3 font-medium">Brand</th>
-                <th className="px-6 py-3 font-medium">Earning</th>
-                <th className="px-6 py-3 font-medium">Status</th>
-                <th className="px-6 py-3 font-medium">Date</th>
-                <th className="px-6 py-3 font-medium text-right">Actions</th>
+                <th className="px-4 py-3 font-medium">Images</th>
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Brand</th>
+                <th className="px-4 py-3 font-medium">Earning</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {items.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-3 font-medium text-slate-800">{s.name}</td>
-                  <td className="px-6 py-3 text-slate-500">{s.brand || "—"}</td>
-                  <td className="px-6 py-3 text-slate-500">{s.earning || "—"}</td>
-                  <td className="px-6 py-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${s.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{s.status}</span></td>
-                  <td className="px-6 py-3 text-slate-500">{s.createdAt ? formatDate(s.createdAt) : '—'}</td>
-                  <td className="px-6 py-3 text-right">
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      {s.imageLink && (
+                        <img src={imgSrc(s.imageLink)} alt="Profile" className="w-10 h-10 rounded-full object-cover border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      )}
+                      {s.coverPhoto && (
+                        <img src={imgSrc(s.coverPhoto)} alt="Cover" className="w-16 h-10 rounded object-cover border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-800">{s.name}</td>
+                  <td className="px-4 py-3 text-slate-500">{s.brand || "—"}</td>
+                  <td className="px-4 py-3 text-slate-500">{s.earning || "—"}</td>
+                  <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${s.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{s.status}</span></td>
+                  <td className="px-4 py-3 text-slate-500">{s.createdAt ? formatDate(s.createdAt) : '—'}</td>
+                  <td className="px-4 py-3 text-right">
                     <button onClick={() => { if (confirm("Delete this story?")) remove(s.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600"><Trash2 size={14} /></button>
                   </td>
                 </tr>
@@ -110,6 +176,52 @@ export default function SuccessPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Page Settings */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
+        <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Settings size={16} /> Page Settings</h2>
+
+        <div className="grid grid-cols-1 gap-4 max-w-2xl">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Section Title ("Desh Bhar Mein Hunar")</label>
+            <input
+              value={hunarTitle}
+              onChange={(e) => setHunarTitle(e.target.value)}
+              placeholder="Desh Bhar Mein Hunar"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Section Subtitle</label>
+            <input
+              value={hunarSubtitle}
+              onChange={(e) => setHunarSubtitle(e.target.value)}
+              placeholder="With our support, 50,000+ Indian's are learning and earning."
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <button onClick={saveSettings} disabled={savingSettings} className="self-start bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center gap-2">
+            {savingSettings && <Loader2 size={14} className="animate-spin" />}
+            Save Text Settings
+          </button>
+        </div>
+
+        <div className="border-t border-slate-100 pt-5 max-w-2xl">
+          <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2"><Video size={14} /> Hero Video (replaces default video on success stories page)</label>
+          {currentVideo && (
+            <p className="text-xs text-emerald-600 mb-2">✓ Custom video is set — <a href={currentVideo.startsWith('/') ? `${API_URL}${currentVideo}` : currentVideo} target="_blank" rel="noopener noreferrer" className="underline">view</a></p>
+          )}
+          <label className="flex items-center gap-2 border border-dashed border-slate-300 rounded-lg p-3 cursor-pointer hover:border-indigo-400 text-sm text-slate-500 mb-2">
+            <Upload size={14} />
+            {videoFile ? videoFile.name : "Upload video file (MP4, max 500MB)"}
+            <input type="file" accept="video/*" className="hidden" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
+          </label>
+          <button onClick={uploadHeroVideo} disabled={!videoFile || uploadingVideo} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center gap-2">
+            {uploadingVideo && <Loader2 size={14} className="animate-spin" />}
+            {uploadingVideo ? "Uploading..." : "Upload Video"}
+          </button>
+        </div>
       </div>
 
       {showModal && (

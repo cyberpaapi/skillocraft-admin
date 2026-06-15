@@ -2,18 +2,101 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createGallery, deleteGallery } from "@/lib/api";
 import { api } from "@/lib/api";
-import { Plus, Image as ImageIcon, Loader2, X, Upload, Trash2 } from "lucide-react";
+import { Plus, Image as ImageIcon, Loader2, X, Upload, Trash2, Pencil } from "lucide-react";
 import { imgSrc } from "@/lib/utils";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
 interface GalleryItem { id: string; imageLink: string; image?: string; description?: string; linkUrl?: string; status: string; }
 
+function GalleryModal({
+  item,
+  onClose,
+  onSuccess,
+}: {
+  item?: GalleryItem;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!item && !imageFile) { toast.error("Please select an image"); return; }
+    const form = e.currentTarget;
+    const fd = new FormData();
+    if (imageFile) fd.append("image", imageFile);
+    const desc = (form.elements.namedItem("description") as HTMLInputElement).value;
+    if (desc) fd.append("description", desc);
+    const link = (form.elements.namedItem("linkUrl") as HTMLInputElement).value;
+    if (link) fd.append("linkUrl", link);
+
+    setSubmitting(true);
+    try {
+      if (item) {
+        await api.put(`/adminpanel/feature-gallery/${item.id}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+        toast.success("Item updated");
+      } else {
+        await createGallery(fd);
+        toast.success("Image added");
+      }
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-800">{item ? "Edit Award" : "Add Award"}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={16} /></button>
+        </div>
+        <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Image {!item && "*"}</label>
+            {item && (
+              <img src={imgSrc(item.imageLink || item.image)} alt="" className="w-full h-32 object-cover rounded-lg mb-2 border border-slate-200" />
+            )}
+            <label className="flex flex-col items-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:border-indigo-400 text-sm text-slate-500">
+              <Upload size={18} className="text-slate-400" />
+              {imageFile ? <span className="text-indigo-600 font-medium">{imageFile.name}</span> : <span>{item ? "Upload new image (optional)" : "Click to upload image"}</span>}
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
+            </label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Caption (optional)</label>
+            <input name="description" defaultValue={item?.description || ""} placeholder="e.g. Award ceremony 2024"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Link URL (optional)</label>
+            <input name="linkUrl" type="url" defaultValue={item?.linkUrl || ""} placeholder="https://example.com"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <p className="text-xs text-slate-400 mt-1">When visitors click this image, they&apos;ll open this link</p>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 border border-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
+            <button type="submit" disabled={submitting} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center justify-center gap-2">
+              {submitting && <Loader2 size={14} className="animate-spin" />}
+              {submitting ? "Saving..." : item ? "Save Changes" : "Upload"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function GalleryPage() {
   const queryClient = useQueryClient();
-  const [showModal, setShowModal] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [modal, setModal] = useState<{ open: boolean; item?: GalleryItem }>({ open: false });
 
   const { data, isLoading } = useQuery({
     queryKey: ["gallery"],
@@ -23,114 +106,65 @@ export default function GalleryPage() {
     },
   });
 
-  const { mutate: create, isPending: creating } = useMutation({
-    mutationFn: (fd: FormData) => createGallery(fd),
-    onSuccess: () => {
-      toast.success("Image added");
-      queryClient.invalidateQueries({ queryKey: ["gallery"] });
-      setShowModal(false);
-      setImageFile(null);
-      formRef.current?.reset();
-    },
-    onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to add"),
-  });
-
   const { mutate: remove } = useMutation({
     mutationFn: (id: string) => deleteGallery(id),
     onSuccess: () => { toast.success("Deleted"); queryClient.invalidateQueries({ queryKey: ["gallery"] }); },
     onError: () => toast.error("Failed to delete"),
   });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!imageFile) { toast.error("Please select an image"); return; }
-    const form = e.currentTarget;
-    const fd = new FormData();
-    fd.append("image", imageFile);
-    const desc = (form.elements.namedItem("description") as HTMLInputElement).value;
-    if (desc) fd.append("description", desc);
-    const link = (form.elements.namedItem("linkUrl") as HTMLInputElement).value;
-    if (link) fd.append("linkUrl", link);
-    create(fd);
-  };
-
   const items = data || [];
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg">
-          <Plus size={16} /> Add Image
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-800">Awards &amp; Achievements</h1>
+          <p className="text-sm text-slate-500">{items.length} items</p>
+        </div>
+        <button onClick={() => setModal({ open: true })} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg">
+          <Plus size={16} /> Add Award
         </button>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center h-48 bg-white rounded-xl border border-slate-200"><Loader2 size={28} className="animate-spin text-indigo-500" /></div>
       ) : items.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 bg-white rounded-xl border border-slate-200"><ImageIcon size={36} className="mx-auto mb-3 opacity-30" /><p className="font-medium">No gallery images yet</p></div>
+        <div className="text-center py-16 text-slate-400 bg-white rounded-xl border border-slate-200"><ImageIcon size={36} className="mx-auto mb-3 opacity-30" /><p className="font-medium">No awards yet</p></div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((item) => {
             const src = imgSrc(item.imageLink || item.image);
             return (
-              <div key={item.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm aspect-square relative group">
-                <img src={src} alt={item.description || ""} className="w-full h-full object-cover" />
-                {item.linkUrl && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-xs text-white truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                    🔗 {item.linkUrl}
-                  </div>
+              <div key={item.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm group relative">
+                <div className="aspect-square">
+                  <img src={src} alt={item.description || ""} className="w-full h-full object-cover" />
+                </div>
+                {item.description && (
+                  <div className="px-3 py-2 text-xs text-slate-600 font-medium truncate border-t border-slate-100">{item.description}</div>
                 )}
-                <button
-                  onClick={() => { if (confirm("Delete this image?")) remove(item.id); }}
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-red-600 text-white p-1.5 rounded-lg transition-opacity"
-                >
-                  <Trash2 size={12} />
-                </button>
+                {item.linkUrl && (
+                  <div className="px-3 pb-2 text-xs text-indigo-500 truncate">🔗 {item.linkUrl}</div>
+                )}
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => setModal({ open: true, item })} className="bg-white text-slate-600 p-1.5 rounded-lg shadow hover:text-indigo-600 border border-slate-200">
+                    <Pencil size={12} />
+                  </button>
+                  <button onClick={() => { if (confirm("Delete this award?")) remove(item.id); }} className="bg-red-600 text-white p-1.5 rounded-lg shadow">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="font-semibold text-slate-800">Add Gallery Image</h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={16} /></button>
-            </div>
-            <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Image *</label>
-                <label className="flex flex-col items-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-6 cursor-pointer hover:border-indigo-400 text-sm text-slate-500">
-                  <Upload size={20} className="text-slate-400" />
-                  {imageFile ? <span className="text-indigo-600 font-medium">{imageFile.name}</span> : <span>Click to upload image</span>}
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
-                </label>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Caption (optional)</label>
-                <input name="description" placeholder="e.g. Award ceremony 2024"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Link URL (optional)</label>
-                <input name="linkUrl" type="url" placeholder="https://example.com"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                <p className="text-xs text-slate-400 mt-1">When visitors click this image, they&apos;ll open this link</p>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)}
-                  className="flex-1 border border-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
-                <button type="submit" disabled={creating}
-                  className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center justify-center gap-2">
-                  {creating && <Loader2 size={14} className="animate-spin" />}
-                  {creating ? "Uploading..." : "Upload"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {modal.open && (
+        <GalleryModal
+          item={modal.item}
+          onClose={() => setModal({ open: false })}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["gallery"] })}
+        />
       )}
     </div>
   );

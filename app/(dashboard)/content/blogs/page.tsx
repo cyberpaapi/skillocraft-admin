@@ -8,7 +8,7 @@ import { Plus, Trash2, FileText, Loader2, X, Upload, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
-interface Blog { id: string; title: string; status: string; isFeatured: boolean; createdAt: string; author?: { name: string }; category?: { name: string }; }
+interface Blog { id: string; title: string; status: string; featured: boolean; createdAt: string; author?: { name: string }; category?: { name: string }; }
 interface Author { id: string; name: string; }
 interface Category { id: string; name: string; }
 
@@ -23,7 +23,8 @@ export default function BlogsPage() {
     queryKey: ["blogs"],
     queryFn: async () => {
       const { data } = await getBlogs();
-      return (data?.data?.blogs || data?.blogs || []) as Blog[];
+      const raw = data?.data;
+      return (Array.isArray(raw) ? raw : raw?.blogs || data?.blogs || []) as Blog[];
     },
   });
 
@@ -130,12 +131,12 @@ export default function BlogsPage() {
                   <td className="px-6 py-3 text-slate-500">{blog.author?.name || "—"}</td>
                   <td className="px-6 py-3">
                     <button
-                      onClick={() => toggleFeatured({ id: blog.id, featured: blog.isFeatured })}
-                      title={blog.isFeatured ? "Remove from Most Loved" : "Add to Most Loved Blogs"}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${blog.isFeatured ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" : "bg-slate-100 text-slate-500 hover:bg-yellow-50 hover:text-yellow-600"}`}
+                      onClick={() => toggleFeatured({ id: blog.id, featured: blog.featured })}
+                      title={blog.featured ? "Remove from Most Loved" : "Add to Most Loved Blogs"}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${blog.featured ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200" : "bg-slate-100 text-slate-500 hover:bg-yellow-50 hover:text-yellow-600"}`}
                     >
-                      <Star size={11} className={blog.isFeatured ? "fill-yellow-500" : ""} />
-                      {blog.isFeatured ? "Featured" : "Normal"}
+                      <Star size={11} className={blog.featured ? "fill-yellow-500" : ""} />
+                      {blog.featured ? "Featured" : "Normal"}
                     </button>
                   </td>
                   <td className="px-6 py-3">

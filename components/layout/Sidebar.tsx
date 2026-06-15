@@ -54,7 +54,7 @@ const navItems: NavItem[] = [
       { label: "FAQs", href: "/content/faqs" },
       { label: "Creators", href: "/content/creators" },
       { label: "Authors", href: "/content/authors" },
-      { label: "Gallery", href: "/content/gallery" },
+      { label: "Awards & Achievements", href: "/content/gallery" },
       { label: "Brands", href: "/content/brands" },
     ],
   },

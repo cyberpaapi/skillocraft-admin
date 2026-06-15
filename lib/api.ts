@@ -218,3 +218,21 @@ export const updateReferralSettings = (data: { discountPercent: number; earnings
 export const getPayoutRequests = () => api.get("/adminpanel/payout-requests");
 export const updatePayoutRequest = (id: string, data: { status: string; note?: string }) =>
   api.patch(`/adminpanel/payout-requests/${id}`, data);
+
+// Course Downloads (DLC)
+export const getCourseDownloads = (courseId: string) =>
+  api.get(`/adminpanel/courses/${courseId}/downloads`);
+export const addCourseDownload = (courseId: string, fd: FormData) =>
+  api.post(`/adminpanel/courses/${courseId}/downloads`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+export const deleteCourseDownload = (downloadId: string) =>
+  api.delete(`/adminpanel/course-downloads/${downloadId}`);
+
+// Site Settings
+export const getSiteSettings = (keys?: string) =>
+  api.get(`/site-settings${keys ? `?keys=${keys}` : ""}`);
+export const setSiteSetting = (key: string, value: string) =>
+  api.post("/adminpanel/site-settings", { key, value });
+export const uploadSiteSettingVideo = (key: string, fd: FormData) => {
+  fd.append("key", key);
+  return api.post("/adminpanel/site-settings/video", fd, { headers: { "Content-Type": "multipart/form-data" } });
+};
