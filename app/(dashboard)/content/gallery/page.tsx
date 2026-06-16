@@ -126,13 +126,14 @@ export default function GalleryPage() {
       fd.append('image', logoFile);
       fd.append('key', 'awards_logos');
       fd.append('append', 'true');
-      await api.post('/adminpanel/site-settings/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/adminpanel/site-settings/image', fd);
       toast.success('Logo added');
       setLogoFile(null);
       if (logoInputRef.current) logoInputRef.current.value = '';
       await fetchLogos();
-    } catch {
-      toast.error('Upload failed');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Upload failed';
+      toast.error(msg);
     } finally {
       setUploadingLogo(false);
     }
