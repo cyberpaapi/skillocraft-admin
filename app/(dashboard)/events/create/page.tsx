@@ -31,6 +31,7 @@ export default function CreateEventPage() {
     city: "Mumbai",
     price: "",
     category: "General",
+    mode: "Online",
     featured: false,
     status: "ACTIVE",
   });
@@ -180,6 +181,16 @@ export default function CreateEventPage() {
               {EVENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+        </div>
+
+        {/* Mode */}
+        <div>
+          <label className={labelClass}>Mode</label>
+          <select className={inputClass} value={form.mode} onChange={(e) => set("mode", e.target.value)}>
+            <option value="Online">Online</option>
+            <option value="Outdoor">Outdoor</option>
+            <option value="Hybrid">Hybrid</option>
+          </select>
         </div>
 
         {/* Status */}

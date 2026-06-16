@@ -80,7 +80,8 @@ function ProductModal({
   const inputClass = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/40 overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
           <h2 className="font-semibold text-slate-800">{product ? "Edit Product" : "Add Product"}</h2>
@@ -173,6 +174,7 @@ function ProductModal({
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );

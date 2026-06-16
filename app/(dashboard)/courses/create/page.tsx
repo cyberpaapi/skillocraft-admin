@@ -62,6 +62,8 @@ export default function CreateCoursePage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [teaserFile, setTeaserFile] = useState<File | null>(null);
+  const [price, setPrice] = useState("");
+  const [discountedPrice, setDiscountedPrice] = useState("");
 
   // Category select state
   const [categoryId, setCategoryId] = useState("");
@@ -164,6 +166,7 @@ export default function CreateCoursePage() {
     e.preventDefault();
     if (!categoryId || categoryId === ADD_NEW) { toast.error("Please select or create a category"); return; }
     if (!creatorId || creatorId === ADD_NEW) { toast.error("Please select or create a creator"); return; }
+    if (!price) { toast.error("Please enter a price"); return; }
 
     setLoading(true);
     const form = e.currentTarget;
@@ -188,7 +191,8 @@ export default function CreateCoursePage() {
       fd.append("creatorId", resolvedCreatorId);
       fd.append("shortDescription", (form.elements.namedItem("shortDescription") as HTMLTextAreaElement).value);
       fd.append("longDescription", (form.elements.namedItem("longDescription") as HTMLTextAreaElement).value);
-      fd.append("price", (form.elements.namedItem("price") as HTMLInputElement).value);
+      fd.append("price", price);
+      if (discountedPrice) fd.append("discountedPrice", discountedPrice);
       fd.append("language", (form.elements.namedItem("language") as HTMLInputElement).value);
       fd.append("whatsAppLink", (form.elements.namedItem("whatsAppLink") as HTMLInputElement).value);
       fd.append("featured", (form.elements.namedItem("featured") as HTMLInputElement).checked ? "true" : "false");
@@ -337,12 +341,29 @@ export default function CreateCoursePage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Price (₹) *</label>
-              <input name="price" required type="number" min="0" placeholder="999" className={inputClass} />
+              <input
+                type="number" min="0" placeholder="999" required className={inputClass}
+                value={price} onChange={(e) => setPrice(e.target.value)}
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Language *</label>
-              <input name="language" required defaultValue="Hindi" placeholder="Hindi" className={inputClass} />
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Discounted Price (₹)
+                {price && discountedPrice && parseFloat(discountedPrice) < parseFloat(price) && (
+                  <span className="ml-2 text-xs font-semibold text-green-600">
+                    {Math.round((1 - parseFloat(discountedPrice) / parseFloat(price)) * 100)}% off
+                  </span>
+                )}
+              </label>
+              <input
+                type="number" min="0" placeholder="Optional" className={inputClass}
+                value={discountedPrice} onChange={(e) => setDiscountedPrice(e.target.value)}
+              />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Language *</label>
+            <input name="language" required defaultValue="Hindi" placeholder="Hindi" className={inputClass} />
           </div>
 
           <div>

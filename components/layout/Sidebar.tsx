@@ -58,6 +58,7 @@ const navItems: NavItem[] = [
       { label: "Brands", href: "/content/brands" },
     ],
   },
+  { label: "Site Settings", href: "/settings", icon: <Settings size={18} /> },
 ];
 
 function NavGroup({ item }: { item: NavItem }) {

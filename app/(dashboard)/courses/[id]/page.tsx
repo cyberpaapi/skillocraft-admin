@@ -30,6 +30,7 @@ interface Product {
   lessonType?: LessonType;
   videoLink?: string;
   textContent?: string;
+  thumbnail?: string;
   status: string;
   order?: number;
 }
@@ -61,6 +62,8 @@ interface Course {
   id: string;
   name: string;
   price: number;
+  discountedPrice?: string | null;
+  language?: string;
   status: string;
   shortDescription?: string;
   imageLink?: string;
@@ -257,10 +260,25 @@ export default function CourseDetailPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [addingReview, setAddingReview] = useState(false);
 
+  // Lesson thumbnail upload state
+  const thumbInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingThumbId, setUploadingThumbId] = useState<string | null>(null);
+  const [pendingThumbLessonId, setPendingThumbLessonId] = useState<string | null>(null);
+
   // DLC state
   const [dlcFile, setDlcFile] = useState<File | null>(null);
   const [uploadingDlc, setUploadingDlc] = useState(false);
   const dlcInputRef = useRef<HTMLInputElement>(null);
+
+  // General settings edit state
+  const [editName, setEditName] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editDiscountedPrice, setEditDiscountedPrice] = useState("");
+  const [editLanguage, setEditLanguage] = useState("");
+  const [editShortDesc, setEditShortDesc] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+  const [settingsInitialized, setSettingsInitialized] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["course", id],
@@ -299,6 +317,19 @@ export default function CourseDetailPage() {
       setOrderedProducts(sorted);
     }
   }, [data?.products, dragIndex]);
+
+  // Initialize general settings from fetched course data (once)
+  useEffect(() => {
+    if (data && !settingsInitialized) {
+      setEditName(data.name || "");
+      setEditPrice(String(data.price || ""));
+      setEditDiscountedPrice(data.discountedPrice || "");
+      setEditLanguage(data.language || "");
+      setEditShortDesc(data.shortDescription || "");
+      setEditStatus(data.status || "ACTIVE");
+      setSettingsInitialized(true);
+    }
+  }, [data, settingsInitialized]);
 
   const handleDragStart = (i: number) => setDragIndex(i);
   const handleDragOver = (e: React.DragEvent, i: number) => {
@@ -468,6 +499,44 @@ export default function CourseDetailPage() {
     onError: () => toast.error("Failed to delete lesson"),
   });
 
+  const handleThumbUpload = async (file: File, lessonId: string) => {
+    setUploadingThumbId(lessonId);
+    try {
+      const fd = new FormData();
+      fd.append("thumbnail", file);
+      await api.post(`/adminpanel/products/${lessonId}/thumbnail`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      toast.success("Thumbnail uploaded");
+      queryClient.invalidateQueries({ queryKey: ["course", id] });
+    } catch {
+      toast.error("Failed to upload thumbnail");
+    } finally {
+      setUploadingThumbId(null);
+      setPendingThumbLessonId(null);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!editName.trim() || !editPrice) { toast.error("Name and price are required"); return; }
+    setSavingSettings(true);
+    try {
+      const fd = new FormData();
+      fd.append("name", editName.trim());
+      fd.append("price", editPrice);
+      if (editDiscountedPrice) fd.append("discountedPrice", editDiscountedPrice);
+      else fd.append("discountedPrice", "");
+      if (editLanguage) fd.append("language", editLanguage);
+      if (editShortDesc) fd.append("shortDescription", editShortDesc);
+      fd.append("status", editStatus);
+      await updateCourse(id, fd);
+      toast.success("Course settings saved");
+      queryClient.invalidateQueries({ queryKey: ["course", id] });
+    } catch {
+      toast.error("Failed to save settings");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const inputClass = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 size={32} className="animate-spin text-indigo-500" /></div>;
@@ -561,6 +630,56 @@ export default function CourseDetailPage() {
         </div>
       </div>
 
+      {/* ── General Settings ── */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2"><Edit2 size={16} /> General Settings</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Course Name</label>
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} className={inputClass} placeholder="Course name" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Price (₹)</label>
+              <input type="number" min="0" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className={inputClass} placeholder="999" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                Discounted Price (₹)
+                {editPrice && editDiscountedPrice && parseFloat(editDiscountedPrice) < parseFloat(editPrice) && (
+                  <span className="ml-2 text-green-600 normal-case font-semibold">
+                    {Math.round((1 - parseFloat(editDiscountedPrice) / parseFloat(editPrice)) * 100)}% off
+                  </span>
+                )}
+              </label>
+              <input type="number" min="0" value={editDiscountedPrice} onChange={(e) => setEditDiscountedPrice(e.target.value)} className={inputClass} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Language</label>
+              <input value={editLanguage} onChange={(e) => setEditLanguage(e.target.value)} className={inputClass} placeholder="Hindi" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Status</label>
+              <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className={inputClass}>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Short Description</label>
+            <textarea value={editShortDesc} onChange={(e) => setEditShortDesc(e.target.value)} rows={2} className={`${inputClass} resize-none`} placeholder="Brief overview" />
+          </div>
+          <button onClick={handleSaveSettings} disabled={savingSettings}
+            className="flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-500 disabled:opacity-60">
+            {savingSettings ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {savingSettings ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
+      </div>
+
       {/* ── Lessons ── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -582,6 +701,12 @@ export default function CourseDetailPage() {
             <input ref={folderInputRef} type="file" className="hidden"
               // @ts-ignore
               webkitdirectory="" multiple onChange={handleFolderUpload} />
+            <input ref={thumbInputRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && pendingThumbLessonId) handleThumbUpload(file, pendingThumbLessonId);
+                e.target.value = "";
+              }} />
             <button onClick={() => setShowAddLesson(true)}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg">
               <Plus size={16} /> Add Lesson
@@ -607,6 +732,13 @@ export default function CourseDetailPage() {
                 <div className="flex items-center gap-4">
                   <GripVertical size={16} className="text-slate-300 flex-shrink-0" />
                   <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm flex-shrink-0">{i + 1}</div>
+                  {product.thumbnail ? (
+                    <img src={imgSrc(product.thumbnail)} alt="" className="w-12 h-8 rounded object-cover border border-slate-200 flex-shrink-0" />
+                  ) : (
+                    <div className="w-12 h-8 rounded border border-dashed border-slate-200 flex items-center justify-center flex-shrink-0">
+                      <ImageIcon size={12} className="text-slate-300" />
+                    </div>
+                  )}
                   <div>
                     <p className="font-medium text-slate-800 text-sm">{product.name}</p>
                     {product.discription && <p className="text-xs text-slate-400 mt-0.5 max-w-md truncate">{product.discription}</p>}
@@ -640,6 +772,14 @@ export default function CourseDetailPage() {
                       )}
                     </>
                   )}
+                  <button
+                    onClick={() => { setPendingThumbLessonId(product.id); thumbInputRef.current?.click(); }}
+                    disabled={uploadingThumbId === product.id}
+                    title="Upload thumbnail"
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-60"
+                  >
+                    {uploadingThumbId === product.id ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                  </button>
                   <button onClick={() => { if (confirm("Delete this lesson?")) removeProduct(product.id); }}
                     className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600">
                     <Trash2 size={14} />
