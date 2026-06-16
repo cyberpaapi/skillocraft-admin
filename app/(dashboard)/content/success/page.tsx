@@ -5,7 +5,7 @@ import { formatDate } from "@/lib/utils";
 import { imgSrc } from "@/lib/utils";
 import { Plus, Trophy, Loader2, Trash2, X, Upload, Settings, Video, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface SuccessStory { id: string; name: string; designation?: string; brand?: string; earning?: string; status: string; createdAt: string; imageLink?: string; coverPhoto?: string; }
 interface Category { id: string; name: string; }
@@ -19,8 +19,10 @@ export default function SuccessPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [hunarImages, setHunarImages] = useState<string[]>([]);
   const [hunarImageFile, setHunarImageFile] = useState<File | null>(null);
   const [uploadingHunarImage, setUploadingHunarImage] = useState(false);
+  const hunarImageInputRef = useRef<HTMLInputElement>(null);
   const [hunarTitle, setHunarTitle] = useState("");
   const [hunarSubtitle, setHunarSubtitle] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
@@ -123,30 +125,55 @@ export default function SuccessPage() {
     }
   };
 
+  const fetchHunarImages = async () => {
+    try {
+      const { data } = await api.get("/site-settings?keys=success_hunar_images");
+      const val = data?.data?.success_hunar_images;
+      if (val) {
+        try { setHunarImages(JSON.parse(val)); } catch { setHunarImages([]); }
+      } else {
+        setHunarImages([]);
+      }
+    } catch {}
+  };
+
+  useEffect(() => { fetchHunarImages(); }, []);
+
   const uploadHunarImage = async () => {
     if (!hunarImageFile) return;
     setUploadingHunarImage(true);
     try {
+      // Upload image first (neutral key, no append) to get the URL
       const fd = new FormData();
-      fd.append("key", "success_hunar_images");
-      fd.append("append", "true");
+      fd.append("key", "success_hunar_img_upload");
       fd.append("image", hunarImageFile);
-      await api.post("/adminpanel/site-settings/image", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const uploadRes = await api.post("/adminpanel/site-settings/image", fd);
+      const newUrl = uploadRes.data?.url;
+      if (!newUrl) throw new Error("No URL returned from upload");
+
+      // Save updated array via setSiteSetting
+      const updated = [...hunarImages, newUrl];
+      await api.post("/adminpanel/site-settings", { key: "success_hunar_images", value: JSON.stringify(updated) });
+
       toast.success("Image added to gallery");
       setHunarImageFile(null);
-      queryClient.invalidateQueries({ queryKey: ["site-settings-success"] });
-    } catch {
-      toast.error("Failed to upload image");
+      if (hunarImageInputRef.current) hunarImageInputRef.current.value = "";
+      await fetchHunarImages();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Upload failed";
+      toast.error(msg);
     } finally {
       setUploadingHunarImage(false);
     }
   };
 
   const removeHunarImage = async (url: string) => {
+    if (!confirm("Remove this image?")) return;
     try {
-      await api.delete("/adminpanel/site-settings/image-item", { data: { key: "success_hunar_images", url } });
+      const updated = hunarImages.filter((u) => u !== url);
+      await api.post("/adminpanel/site-settings", { key: "success_hunar_images", value: JSON.stringify(updated) });
       toast.success("Image removed");
-      queryClient.invalidateQueries({ queryKey: ["site-settings-success"] });
+      await fetchHunarImages();
     } catch {
       toast.error("Failed to remove image");
     }
@@ -154,9 +181,6 @@ export default function SuccessPage() {
 
   const items = data || [];
   const currentVideo = (settings as any)?.success_hero_video;
-  const hunarImages: string[] = (() => {
-    try { const v = (settings as any)?.success_hunar_images; return v ? JSON.parse(v) : []; } catch { return []; }
-  })();
 
   return (
     <div className="space-y-6">
@@ -262,13 +286,13 @@ export default function SuccessPage() {
           {hunarImages.length > 0 && (
             <div className="grid grid-cols-3 gap-3 mb-4">
               {hunarImages.map((url, i) => (
-                <div key={i} className="relative group rounded-lg overflow-hidden border border-slate-200 aspect-video bg-slate-100">
+                <div key={i} className="relative rounded-lg overflow-hidden border border-slate-200 aspect-video bg-slate-100">
                   <img src={imgSrc(url)} alt={`Hunar ${i + 1}`} className="w-full h-full object-cover" />
                   <button
-                    onClick={() => { if (confirm("Remove this image?")) removeHunarImage(url); }}
-                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removeHunarImage(url)}
+                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow"
                   >
-                    <X size={12} />
+                    <X size={11} />
                   </button>
                 </div>
               ))}
@@ -278,7 +302,7 @@ export default function SuccessPage() {
             <label className="flex-1 flex items-center gap-2 border border-dashed border-slate-300 rounded-lg p-3 cursor-pointer hover:border-indigo-400 text-sm text-slate-500">
               <Upload size={14} />
               {hunarImageFile ? hunarImageFile.name : "Upload image for gallery"}
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => setHunarImageFile(e.target.files?.[0] || null)} />
+              <input ref={hunarImageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => setHunarImageFile(e.target.files?.[0] || null)} />
             </label>
             <button onClick={uploadHunarImage} disabled={!hunarImageFile || uploadingHunarImage} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center gap-2 flex-shrink-0">
               {uploadingHunarImage && <Loader2 size={14} className="animate-spin" />}
