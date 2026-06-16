@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Plus, Image as ImageIcon, Loader2, X, Upload, Trash2, Pencil } from "lucide-react";
 import { imgSrc } from "@/lib/utils";
 import { toast } from "sonner";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface GalleryItem { id: string; imageLink: string; image?: string; description?: string; linkUrl?: string; status: string; }
 
@@ -98,6 +98,57 @@ export default function GalleryPage() {
   const queryClient = useQueryClient();
   const [modal, setModal] = useState<{ open: boolean; item?: GalleryItem }>({ open: false });
 
+  // Logos (SiteSettings)
+  const [logos, setLogos] = useState<string[]>([]);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchLogos = async () => {
+    try {
+      const { data } = await api.get('/site-settings?keys=awards_logos');
+      const val = data?.data?.awards_logos;
+      if (val) {
+        try { setLogos(JSON.parse(val)); } catch { setLogos([]); }
+      } else {
+        setLogos([]);
+      }
+    } catch {}
+  };
+
+  useEffect(() => { fetchLogos(); }, []);
+
+  const uploadLogo = async () => {
+    if (!logoFile) return;
+    setUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', logoFile);
+      fd.append('key', 'awards_logos');
+      fd.append('append', 'true');
+      await api.post('/adminpanel/site-settings/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      toast.success('Logo added');
+      setLogoFile(null);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+      await fetchLogos();
+    } catch {
+      toast.error('Upload failed');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const removeLogo = async (url: string) => {
+    if (!confirm('Remove this logo?')) return;
+    try {
+      await api.delete('/adminpanel/site-settings/image-item', { data: { key: 'awards_logos', url } });
+      toast.success('Removed');
+      await fetchLogos();
+    } catch {
+      toast.error('Failed to remove');
+    }
+  };
+
   const { data, isLoading } = useQuery({
     queryKey: ["gallery"],
     queryFn: async () => {
@@ -158,6 +209,66 @@ export default function GalleryPage() {
           })}
         </div>
       )}
+
+      {/* Logos Section */}
+      <div className="mt-8 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">Logos</h2>
+            <p className="text-xs text-slate-500">Round logos shown linearly on the Awards section</p>
+          </div>
+        </div>
+
+        {/* Existing logos */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          {logos.length === 0 ? (
+            <p className="text-sm text-slate-400">No logos yet. Upload one below.</p>
+          ) : (
+            <div className="flex flex-wrap gap-4">
+              {logos.map((url, i) => (
+                <div key={i} className="relative group">
+                  <div className="size-16 rounded-full overflow-hidden border-2 border-slate-200 shadow-sm">
+                    <img src={imgSrc(url)} alt={`Logo ${i + 1}`} className="w-full h-full object-cover" />
+                  </div>
+                  <button
+                    onClick={() => removeLogo(url)}
+                    className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Upload new logo */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
+          <label className="flex items-center gap-3 border border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:border-indigo-400 text-sm text-slate-500 transition-colors">
+            <Upload size={16} className="text-slate-400 shrink-0" />
+            {logoFile ? (
+              <span className="text-indigo-600 font-medium truncate">{logoFile.name}</span>
+            ) : (
+              <span>Click to select a logo image (will be shown as circle)</span>
+            )}
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+            />
+          </label>
+          <button
+            onClick={uploadLogo}
+            disabled={!logoFile || uploadingLogo}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-60"
+          >
+            {uploadingLogo && <Loader2 size={14} className="animate-spin" />}
+            {uploadingLogo ? "Uploading..." : "Add Logo"}
+          </button>
+        </div>
+      </div>
 
       {modal.open && (
         <GalleryModal
