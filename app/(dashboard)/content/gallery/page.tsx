@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useState, useRef, useEffect } from "react";
 
 interface GalleryItem { id: string; imageLink: string; image?: string; description?: string; linkUrl?: string; status: string; }
+interface LogoItem { url: string; link: string; }
 
 function GalleryModal({
   item,
@@ -99,8 +100,9 @@ export default function GalleryPage() {
   const [modal, setModal] = useState<{ open: boolean; item?: GalleryItem }>({ open: false });
 
   // Logos (SiteSettings)
-  const [logos, setLogos] = useState<string[]>([]);
+  const [logos, setLogos] = useState<LogoItem[]>([]);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoLink, setLogoLink] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,7 +111,13 @@ export default function GalleryPage() {
       const { data } = await api.get('/site-settings?keys=awards_logos');
       const val = data?.data?.awards_logos;
       if (val) {
-        try { setLogos(JSON.parse(val)); } catch { setLogos([]); }
+        try {
+          const parsed = JSON.parse(val);
+          const normalized: LogoItem[] = (Array.isArray(parsed) ? parsed : []).map((item: any) =>
+            typeof item === 'string' ? { url: item, link: '' } : { url: item.url || '', link: item.link || '' }
+          );
+          setLogos(normalized);
+        } catch { setLogos([]); }
       } else {
         setLogos([]);
       }
@@ -122,13 +130,21 @@ export default function GalleryPage() {
     if (!logoFile) return;
     setUploadingLogo(true);
     try {
+      // Upload image to R2, use a neutral key so it doesn't clobber awards_logos
       const fd = new FormData();
       fd.append('image', logoFile);
-      fd.append('key', 'awards_logos');
-      fd.append('append', 'true');
-      await api.post('/adminpanel/site-settings/image', fd);
+      fd.append('key', 'awards_logo_upload');
+      const uploadRes = await api.post('/adminpanel/site-settings/image', fd);
+      const newUrl = uploadRes.data?.url;
+      if (!newUrl) throw new Error('No URL returned from upload');
+
+      // Save updated logos array (objects) via setSiteSetting
+      const updated: LogoItem[] = [...logos, { url: newUrl, link: logoLink.trim() }];
+      await api.post('/adminpanel/site-settings', { key: 'awards_logos', value: JSON.stringify(updated) });
+
       toast.success('Logo added');
       setLogoFile(null);
+      setLogoLink('');
       if (logoInputRef.current) logoInputRef.current.value = '';
       await fetchLogos();
     } catch (err: any) {
@@ -142,7 +158,8 @@ export default function GalleryPage() {
   const removeLogo = async (url: string) => {
     if (!confirm('Remove this logo?')) return;
     try {
-      await api.delete('/adminpanel/site-settings/image-item', { data: { key: 'awards_logos', url } });
+      const updated = logos.filter(l => l.url !== url);
+      await api.post('/adminpanel/site-settings', { key: 'awards_logos', value: JSON.stringify(updated) });
       toast.success('Removed');
       await fetchLogos();
     } catch {
@@ -226,13 +243,16 @@ export default function GalleryPage() {
             <p className="text-sm text-slate-400">No logos yet. Upload one below.</p>
           ) : (
             <div className="flex flex-wrap gap-4">
-              {logos.map((url, i) => (
-                <div key={i} className="relative group">
+              {logos.map((logo, i) => (
+                <div key={i} className="relative group flex flex-col items-center gap-1">
                   <div className="size-16 rounded-full overflow-hidden border-2 border-slate-200 shadow-sm">
-                    <img src={imgSrc(url)} alt={`Logo ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={imgSrc(logo.url)} alt={`Logo ${i + 1}`} className="w-full h-full object-cover" />
                   </div>
+                  {logo.link && (
+                    <span className="text-xs text-indigo-500 max-w-[64px] truncate" title={logo.link}>🔗</span>
+                  )}
                   <button
-                    onClick={() => removeLogo(url)}
+                    onClick={() => removeLogo(logo.url)}
                     className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow"
                   >
                     <X size={12} />
@@ -260,6 +280,16 @@ export default function GalleryPage() {
               onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
             />
           </label>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Link URL (optional)</label>
+            <input
+              type="url"
+              value={logoLink}
+              onChange={(e) => setLogoLink(e.target.value)}
+              placeholder="https://example.com — clicking the logo opens this link"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
           <button
             onClick={uploadLogo}
             disabled={!logoFile || uploadingLogo}
