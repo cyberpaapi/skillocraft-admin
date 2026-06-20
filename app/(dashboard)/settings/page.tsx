@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Settings, Video, Upload, Loader2, CheckCircle } from "lucide-react";
+import { Settings, Video, Upload, Loader2, CheckCircle, Link2 } from "lucide-react";
 
 export default function SiteSettingsPage() {
   const queryClient = useQueryClient();
@@ -13,16 +13,33 @@ export default function SiteSettingsPage() {
   const [howItWorksFile, setHowItWorksFile] = useState<File | null>(null);
   const [uploadingHowItWorks, setUploadingHowItWorks] = useState(false);
 
+  // "Join Now" button link
+  const [joinLink, setJoinLink] = useState("");
+  const [savingJoinLink, setSavingJoinLink] = useState(false);
+
   const inputClass = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
 
   useEffect(() => {
-    api.get("/site-settings?keys=home_how_it_works_video")
+    api.get("/site-settings?keys=home_how_it_works_video,home_join_button_link")
       .then(({ data }) => {
         const d = data?.data || {};
         if (d.home_how_it_works_video) setHowItWorksVideo(d.home_how_it_works_video);
+        if (d.home_join_button_link) setJoinLink(d.home_join_button_link);
       })
       .catch(() => {});
   }, []);
+
+  const saveJoinLink = async () => {
+    setSavingJoinLink(true);
+    try {
+      await api.post("/adminpanel/site-settings", { key: "home_join_button_link", value: joinLink.trim() });
+      toast.success("Join Now button link saved");
+    } catch {
+      toast.error("Failed to save link");
+    } finally {
+      setSavingJoinLink(false);
+    }
+  };
 
   const uploadHowItWorksVideo = async () => {
     if (!howItWorksFile) return;
@@ -86,6 +103,28 @@ export default function SiteSettingsPage() {
             {uploadingHowItWorks ? "Uploading..." : howItWorksVideo ? "Replace Video" : "Upload Video"}
           </button>
         </div>
+      </div>
+
+      {/* "Join Now" Button Link */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Link2 size={16} /> &quot;Join Now&quot; Button Link</h2>
+        <p className="text-sm text-slate-500">The URL the &quot;Join Now&quot; button (Formulator Club section near the homepage bottom) links to. Use a full URL (https://...) to open in a new tab, or a path like /courses.</p>
+
+        <input
+          type="text"
+          value={joinLink}
+          onChange={(e) => setJoinLink(e.target.value)}
+          placeholder="https://chat.whatsapp.com/... or /courses"
+          className={inputClass}
+        />
+        <button
+          onClick={saveJoinLink}
+          disabled={savingJoinLink}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center gap-2"
+        >
+          {savingJoinLink && <Loader2 size={14} className="animate-spin" />}
+          {savingJoinLink ? "Saving..." : "Save Link"}
+        </button>
       </div>
     </div>
   );
