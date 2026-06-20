@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, imgSrc } from "@/lib/utils";
-import { Plus, Trash2, Pencil, Loader2, X, Upload, ShoppingBag } from "lucide-react";
+import { Plus, Trash2, Pencil, Loader2, X, Upload, ShoppingBag, Star, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 import SuperAdminGate from "@/components/SuperAdminGate";
@@ -21,17 +21,25 @@ interface MarketplaceProduct {
   specifications?: string;
   importantNote?: string;
   deliveryInfo?: string;
+  featured?: boolean;
+  bestSelling?: boolean;
   status: string;
 }
 
-const CATEGORIES = ["Baking", "Skincare", "Artificial Jewellery", "Hand Craft", "Makeup", "Perfume", "Healthcare", "Art & Craft", "Cooking", "Other"];
+interface MarketplaceCategory { id: string; name: string; imageUrl?: string | null; }
+
+const ADD_NEW = "__add_new__";
 
 function ProductModal({
   product,
+  categories,
+  onCategoryAdded,
   onClose,
   onSuccess,
 }: {
   product?: MarketplaceProduct;
+  categories: MarketplaceCategory[];
+  onCategoryAdded: (name: string) => Promise<void>;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -40,10 +48,38 @@ function ProductModal({
   const [highlights, setHighlights] = useState<{ key: string; value: string }[]>(
     product?.highlights || [{ key: "", value: "" }]
   );
+  const [category, setCategory] = useState(product?.category || (categories[0]?.name ?? ""));
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
+  const [featured, setFeatured] = useState(Boolean(product?.featured));
+  const [bestSelling, setBestSelling] = useState(Boolean(product?.bestSelling));
   const formRef = useRef<HTMLFormElement>(null);
+
+  const handleCategoryChange = (val: string) => {
+    if (val === ADD_NEW) { setShowAddCat(true); }
+    else { setShowAddCat(false); setCategory(val); }
+  };
+
+  const handleAddCategory = async () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    setAddingCat(true);
+    try {
+      await onCategoryAdded(name);
+      setCategory(name);
+      setShowAddCat(false);
+      setNewCatName("");
+    } catch {
+      toast.error("Failed to add category");
+    } finally {
+      setAddingCat(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!category) { toast.error("Please select or add a category"); return; }
     const form = e.currentTarget;
     const fd = new FormData();
     fd.append("name", (form.elements.namedItem("name") as HTMLInputElement).value);
@@ -51,7 +87,9 @@ function ProductModal({
     fd.append("price", (form.elements.namedItem("price") as HTMLInputElement).value);
     fd.append("originalPrice", (form.elements.namedItem("originalPrice") as HTMLInputElement).value);
     fd.append("discount", (form.elements.namedItem("discount") as HTMLInputElement).value);
-    fd.append("category", (form.elements.namedItem("category") as HTMLSelectElement).value);
+    fd.append("category", category);
+    fd.append("featured", featured ? "true" : "false");
+    fd.append("bestSelling", bestSelling ? "true" : "false");
     fd.append("specifications", (form.elements.namedItem("specifications") as HTMLTextAreaElement).value);
     fd.append("importantNote", (form.elements.namedItem("importantNote") as HTMLInputElement).value);
     fd.append("deliveryInfo", (form.elements.namedItem("deliveryInfo") as HTMLInputElement).value);
@@ -111,10 +149,40 @@ function ProductModal({
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Category *</label>
-              <select name="category" required defaultValue={product?.category || "Other"} className={inputClass}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              <select value={showAddCat ? ADD_NEW : category} onChange={(e) => handleCategoryChange(e.target.value)} className={inputClass}>
+                <option value="">Select category</option>
+                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                <option value={ADD_NEW}>➕ Add new category</option>
               </select>
+              {showAddCat && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    autoFocus
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCategory(); } }}
+                    placeholder="New category name"
+                    className="flex-1 border border-indigo-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button type="button" onClick={handleAddCategory} disabled={addingCat || !newCatName.trim()}
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60">
+                    {addingCat ? <Loader2 size={13} className="animate-spin" /> : "Add"}
+                  </button>
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Featured / Best Selling */}
+          <div className="flex flex-wrap gap-5">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="w-4 h-4 rounded accent-indigo-600" />
+              <span className="text-sm text-slate-700 font-medium flex items-center gap-1"><Star size={13} /> Featured (top selling)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={bestSelling} onChange={(e) => setBestSelling(e.target.checked)} className="w-4 h-4 rounded accent-indigo-600" />
+              <span className="text-sm text-slate-700 font-medium flex items-center gap-1"><Tag size={13} /> Best Selling</span>
+            </label>
           </div>
 
           {/* Images */}
@@ -180,9 +248,104 @@ function ProductModal({
   );
 }
 
+interface BannerData { badge: string; title: string; subtitle: string; cta: string; ctaLink: string; bgImage: string; }
+
+const DEFAULT_BANNERS: BannerData[] = [
+  { badge: "New Launch", title: "Start Your Own Perfume Brand", subtitle: "Professional Perfume Making Course at just ₹699/-", cta: "Join Now", ctaLink: "", bgImage: "" },
+  { badge: "Number One", title: "Skill-Tech Platform in India", subtitle: "Login and Start Your Learning Now", cta: "Login", ctaLink: "", bgImage: "" },
+];
+
+function MarketplaceBanners() {
+  const [banners, setBanners] = useState<BannerData[]>(DEFAULT_BANNERS);
+  const [saving, setSaving] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+
+  useQuery({
+    queryKey: ["marketplace-banners"],
+    queryFn: async () => {
+      const { data } = await api.get("/site-settings?keys=marketplace_banners");
+      const raw = data?.data?.marketplace_banners;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length === 2) setBanners(parsed);
+        } catch {}
+      }
+      return raw || null;
+    },
+  });
+
+  const setField = (idx: number, key: keyof BannerData, value: string) =>
+    setBanners((prev) => prev.map((b, i) => i === idx ? { ...b, [key]: value } : b));
+
+  const uploadBg = async (idx: number, file: File) => {
+    setUploadingIdx(idx);
+    try {
+      const fd = new FormData();
+      fd.append("key", "marketplace_banner_bg_upload");
+      fd.append("image", file);
+      const { data } = await api.post("/adminpanel/site-settings/image", fd);
+      if (data?.url) setField(idx, "bgImage", data.url);
+      else throw new Error();
+    } catch {
+      toast.error("Failed to upload background");
+    } finally {
+      setUploadingIdx(null);
+    }
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.post("/adminpanel/site-settings", { key: "marketplace_banners", value: JSON.stringify(banners) });
+      toast.success("Banners saved");
+    } catch {
+      toast.error("Failed to save banners");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+      <div>
+        <h2 className="font-semibold text-slate-800 flex items-center gap-2"><ShoppingBag size={16} /> Marketplace Banners</h2>
+        <p className="text-xs text-slate-400 mt-0.5">The two promo banners at the top of the marketplace page. Edit text and background image.</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {banners.map((b, idx) => (
+          <div key={idx} className="border border-slate-200 rounded-lg p-4 space-y-2">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Banner {idx + 1}</p>
+            <input value={b.badge} onChange={(e) => setField(idx, "badge", e.target.value)} placeholder="Badge (e.g. New Launch)" className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input value={b.title} onChange={(e) => setField(idx, "title", e.target.value)} placeholder="Title" className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input value={b.subtitle} onChange={(e) => setField(idx, "subtitle", e.target.value)} placeholder="Subtitle" className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div className="grid grid-cols-2 gap-2">
+              <input value={b.cta} onChange={(e) => setField(idx, "cta", e.target.value)} placeholder="Button text" className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input value={b.ctaLink} onChange={(e) => setField(idx, "ctaLink", e.target.value)} placeholder="Button link (/courses)" className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div className="flex items-center gap-2">
+              {b.bgImage && <img src={imgSrc(b.bgImage)} alt="bg" className="w-16 h-10 object-cover rounded border border-slate-200" />}
+              <label className="flex-1 flex items-center gap-2 border border-dashed border-slate-300 rounded-lg p-2 cursor-pointer hover:border-indigo-400 text-xs text-slate-500">
+                <Upload size={13} />
+                {uploadingIdx === idx ? "Uploading..." : b.bgImage ? "Change background image" : "Upload background image"}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadBg(idx, f); }} />
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={save} disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center gap-2">
+        {saving && <Loader2 size={14} className="animate-spin" />} Save Banners
+      </button>
+    </div>
+  );
+}
+
 export default function MarketplacePage() {
   const queryClient = useQueryClient();
   const [modal, setModal] = useState<{ open: boolean; product?: MarketplaceProduct }>({ open: false });
+  const [newCategory, setNewCategory] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["marketplace-products"],
@@ -190,6 +353,41 @@ export default function MarketplacePage() {
       const { data } = await api.get("/marketplace-products?limit=100&status=ACTIVE");
       return (data?.data || []) as MarketplaceProduct[];
     },
+  });
+
+  const { data: categoriesData, refetch: refetchCategories } = useQuery({
+    queryKey: ["marketplace-categories"],
+    queryFn: async () => {
+      const { data } = await api.get("/adminpanel/marketplace-categories");
+      return (data?.data || []) as MarketplaceCategory[];
+    },
+  });
+  const categories = categoriesData || [];
+
+  const addCategory = async (name: string) => {
+    await api.post("/adminpanel/marketplace-categories", { name });
+    await refetchCategories();
+  };
+
+  const handleAddCategoryTop = async () => {
+    const name = newCategory.trim();
+    if (!name) return;
+    setAddingCategory(true);
+    try {
+      await addCategory(name);
+      toast.success("Category added");
+      setNewCategory("");
+    } catch {
+      toast.error("Failed to add category");
+    } finally {
+      setAddingCategory(false);
+    }
+  };
+
+  const { mutate: deleteCategory } = useMutation({
+    mutationFn: (id: string) => api.delete(`/adminpanel/marketplace-categories/${id}`),
+    onSuccess: () => { toast.success("Category removed"); refetchCategories(); },
+    onError: () => toast.error("Failed to remove category"),
   });
 
   const { mutate: remove } = useMutation({
@@ -211,6 +409,42 @@ export default function MarketplacePage() {
         <button onClick={() => setModal({ open: true })} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg">
           <Plus size={16} /> Add Product
         </button>
+      </div>
+
+      {/* Marketplace Banners */}
+      <MarketplaceBanners />
+
+      {/* Categories management */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
+        <div>
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Tag size={16} /> Marketplace Categories</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Course categories appear here automatically. Add marketplace-only categories below. Names are unique.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((c) => (
+            <span key={c.id} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-sm rounded-full pl-3 pr-1.5 py-1">
+              {c.name}
+              <button onClick={() => { if (confirm(`Remove "${c.name}" from marketplace categories?`)) deleteCategory(c.id); }}
+                className="text-slate-400 hover:text-red-500" title="Remove">
+                <X size={13} />
+              </button>
+            </span>
+          ))}
+          {categories.length === 0 && <span className="text-sm text-slate-400">No categories yet</span>}
+        </div>
+        <div className="flex gap-2 max-w-md">
+          <input
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCategoryTop(); } }}
+            placeholder="New category name"
+            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button onClick={handleAddCategoryTop} disabled={addingCategory || !newCategory.trim()}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center gap-1">
+            {addingCategory ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -278,6 +512,8 @@ export default function MarketplacePage() {
       {modal.open && (
         <ProductModal
           product={modal.product}
+          categories={categories}
+          onCategoryAdded={addCategory}
           onClose={() => setModal({ open: false })}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ["marketplace-products"] })}
         />

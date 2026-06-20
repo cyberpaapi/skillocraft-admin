@@ -203,9 +203,9 @@ export const deleteAuthor = (id: string) => api.delete(`/adminpanel/author/${id}
 export const getEvents = (page = 1, limit = 50) => api.get(`/adminpanel/events?page=${page}&limit=${limit}`);
 export const getEvent = (id: string) => api.get(`/events/${id}`);
 export const createEvent = (data: FormData) =>
-  api.post("/adminpanel/events", data, { headers: { "Content-Type": "multipart/form-data" } });
+  api.post("/adminpanel/events", data);
 export const updateEvent = (id: string, data: FormData) =>
-  api.put(`/adminpanel/events/${id}`, data, { headers: { "Content-Type": "multipart/form-data" } });
+  api.put(`/adminpanel/events/${id}`, data);
 export const deleteEvent = (id: string) => api.delete(`/adminpanel/events/${id}`);
 
 // Analytics

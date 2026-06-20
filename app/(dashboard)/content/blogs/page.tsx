@@ -4,19 +4,31 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getBlogs, deleteBlog, getAuthors, getCategories } from "@/lib/api";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trash2, FileText, Loader2, X, Upload, Star } from "lucide-react";
+import { Plus, Trash2, FileText, Loader2, X, Upload, Star, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 
 interface Blog { id: string; title: string; status: string; featured: boolean; createdAt: string; author?: { name: string }; category?: { name: string }; }
 interface Author { id: string; name: string; }
 interface Category { id: string; name: string; }
+interface BlogFull {
+  id: string;
+  title: string;
+  shortDescription?: string;
+  longDesription?: string;
+  categoryId?: string;
+  featured?: boolean;
+  author?: { id: string; name: string };
+}
 
 export default function BlogsPage() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<BlogFull | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -49,12 +61,20 @@ export default function BlogsPage() {
     onSuccess: () => {
       toast.success("Blog created");
       queryClient.invalidateQueries({ queryKey: ["blogs"] });
-      setShowModal(false);
-      setImageFile(null);
-      setIsFeatured(false);
-      formRef.current?.reset();
+      closeModal();
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to create blog"),
+  });
+
+  const { mutate: update, isPending: updating } = useMutation({
+    mutationFn: ({ id, fd }: { id: string; fd: FormData }) =>
+      api.put(`/adminpanel/blogs/${id}`, fd, { headers: { "Content-Type": "multipart/form-data" } }),
+    onSuccess: () => {
+      toast.success("Blog updated");
+      queryClient.invalidateQueries({ queryKey: ["blogs"] });
+      closeModal();
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to update blog"),
   });
 
   const { mutate: remove } = useMutation({
@@ -62,6 +82,40 @@ export default function BlogsPage() {
     onSuccess: () => { toast.success("Blog deleted"); queryClient.invalidateQueries({ queryKey: ["blogs"] }); },
     onError: () => toast.error("Failed to delete"),
   });
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditId(null);
+    setEditData(null);
+    setImageFile(null);
+    setIsFeatured(false);
+    formRef.current?.reset();
+  };
+
+  const openCreate = () => {
+    setEditId(null);
+    setEditData(null);
+    setImageFile(null);
+    setIsFeatured(false);
+    setShowModal(true);
+  };
+
+  const openEdit = async (id: string) => {
+    setLoadingEdit(true);
+    try {
+      const { data } = await api.get(`/blogs/${id}`);
+      const blog = (data?.data || data) as BlogFull;
+      setEditData(blog);
+      setEditId(id);
+      setIsFeatured(Boolean(blog.featured));
+      setImageFile(null);
+      setShowModal(true);
+    } catch {
+      toast.error("Failed to load blog");
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
 
   const { mutate: toggleFeatured } = useMutation({
     mutationFn: ({ id, featured }: { id: string; featured: boolean }) => {
@@ -75,7 +129,7 @@ export default function BlogsPage() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!imageFile) { toast.error("Please upload a featured image"); return; }
+    if (!editId && !imageFile) { toast.error("Please upload a featured image"); return; }
     const form = e.currentTarget;
     const authorName = (form.elements.namedItem("authorName") as HTMLInputElement).value.trim();
     const authorList = authors || [];
@@ -93,8 +147,13 @@ export default function BlogsPage() {
     fd.append("shortDescription", (form.elements.namedItem("shortDescription") as HTMLInputElement).value);
     fd.append("longDescription", (form.elements.namedItem("longDescription") as HTMLTextAreaElement).value);
     fd.append("featured", String(isFeatured));
-    fd.append("image", imageFile);
-    create(fd);
+    if (imageFile) fd.append("image", imageFile);
+
+    if (editId) {
+      update({ id: editId, fd });
+    } else {
+      create(fd);
+    }
   };
 
   const blogs = data || [];
@@ -102,7 +161,7 @@ export default function BlogsPage() {
   return (
     <div className="space-y-5">
       <div className="flex justify-end">
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+        <button onClick={openCreate} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
           <Plus size={16} /> New Blog
         </button>
       </div>
@@ -144,7 +203,14 @@ export default function BlogsPage() {
                   </td>
                   <td className="px-6 py-3 text-slate-500">{formatDate(blog.createdAt)}</td>
                   <td className="px-6 py-3 text-right">
-                    <button onClick={() => { if (confirm("Delete this blog?")) remove(blog.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600"><Trash2 size={14} /></button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openEdit(blog.id)} disabled={loadingEdit} title="Edit blog"
+                        className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 disabled:opacity-50">
+                        {loadingEdit && editId === blog.id ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
+                      </button>
+                      <button onClick={() => { if (confirm("Delete this blog?")) remove(blog.id); }} title="Delete blog"
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600"><Trash2 size={14} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -157,19 +223,19 @@ export default function BlogsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg my-4">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="font-semibold text-slate-800">New Blog Post</h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={16} /></button>
+              <h2 className="font-semibold text-slate-800">{editId ? "Edit Blog Post" : "New Blog Post"}</h2>
+              <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"><X size={16} /></button>
             </div>
-            <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form key={editId || "new"} ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
-                <input name="title" required placeholder="Blog post title"
+                <input name="title" required placeholder="Blog post title" defaultValue={editData?.title || ""}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Author Name *</label>
-                  <input name="authorName" required placeholder="e.g. Roshni Kaur"
+                  <input name="authorName" required placeholder="e.g. Roshni Kaur" defaultValue={editData?.author?.name || ""}
                     list="author-suggestions"
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                   <datalist id="author-suggestions">
@@ -178,7 +244,7 @@ export default function BlogsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Category *</label>
-                  <select name="categoryId" required
+                  <select name="categoryId" required defaultValue={editData?.categoryId || ""}
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <option value="">Select category</option>
                     {(categories || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -187,12 +253,12 @@ export default function BlogsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Short Description *</label>
-                <input name="shortDescription" required placeholder="Brief summary (1-2 sentences)"
+                <input name="shortDescription" required placeholder="Brief summary (1-2 sentences)" defaultValue={editData?.shortDescription || ""}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Content *</label>
-                <textarea name="longDescription" required rows={5} placeholder="Full blog content..."
+                <textarea name="longDescription" required rows={5} placeholder="Full blog content..." defaultValue={editData?.longDesription || ""}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
               </div>
               <div className="flex items-center gap-3">
@@ -205,24 +271,24 @@ export default function BlogsPage() {
                 />
                 <label htmlFor="featured-check" className="text-sm font-medium text-slate-700 cursor-pointer flex items-center gap-1">
                   <Star size={14} className={isFeatured ? "text-yellow-500 fill-yellow-500" : "text-slate-400"} />
-                  Add to "Most Loved Blogs"
+                  Add to &quot;Most Loved Blogs&quot;
                 </label>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Featured Image *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Featured Image {editId ? "" : "*"}</label>
                 <label className="flex items-center gap-2 border border-dashed border-slate-300 rounded-lg p-3 cursor-pointer hover:border-indigo-400 text-sm text-slate-500">
                   <Upload size={14} />
-                  {imageFile ? imageFile.name : "Upload featured image"}
+                  {imageFile ? imageFile.name : editId ? "Upload to replace current image (optional)" : "Upload featured image"}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
                 </label>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)}
+                <button type="button" onClick={closeModal}
                   className="flex-1 border border-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
-                <button type="submit" disabled={creating}
+                <button type="submit" disabled={creating || updating}
                   className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center justify-center gap-2">
-                  {creating && <Loader2 size={14} className="animate-spin" />}
-                  {creating ? "Publishing..." : "Publish"}
+                  {(creating || updating) && <Loader2 size={14} className="animate-spin" />}
+                  {editId ? (updating ? "Saving..." : "Save Changes") : (creating ? "Publishing..." : "Publish")}
                 </button>
               </div>
             </form>

@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 
 interface SuccessStory { id: string; name: string; designation?: string; brand?: string; earning?: string; status: string; createdAt: string; imageLink?: string; coverPhoto?: string; }
 interface Category { id: string; name: string; }
+interface LiveFAQ { question: string; answer: string; }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -26,6 +27,9 @@ export default function SuccessPage() {
   const [hunarTitle, setHunarTitle] = useState("");
   const [hunarSubtitle, setHunarSubtitle] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
+  const [liveOffline, setLiveOffline] = useState<LiveFAQ[]>([]);
+  const [liveOnline, setLiveOnline] = useState<LiveFAQ[]>([]);
+  const [savingLiveFaqs, setSavingLiveFaqs] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -48,12 +52,14 @@ export default function SuccessPage() {
   const { data: settings } = useQuery({
     queryKey: ["site-settings-success"],
     queryFn: async () => {
-      const { data } = await api.get("/site-settings?keys=success_hunar_title,success_hunar_subtitle,success_hero_video,success_hunar_images");
+      const { data } = await api.get("/site-settings?keys=success_hunar_title,success_hunar_subtitle,success_hero_video,success_hunar_images,live_offline_faqs,live_online_faqs");
       return data?.data || {};
     },
     onSuccess: (d: any) => {
       if (d.success_hunar_title) setHunarTitle(d.success_hunar_title);
       if (d.success_hunar_subtitle) setHunarSubtitle(d.success_hunar_subtitle);
+      try { if (d.live_offline_faqs) setLiveOffline(JSON.parse(d.live_offline_faqs)); } catch {}
+      try { if (d.live_online_faqs) setLiveOnline(JSON.parse(d.live_online_faqs)); } catch {}
     },
   } as any);
 
@@ -104,6 +110,22 @@ export default function SuccessPage() {
       toast.error("Failed to save settings");
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const saveLiveFaqs = async () => {
+    setSavingLiveFaqs(true);
+    try {
+      await Promise.all([
+        api.post("/adminpanel/site-settings", { key: "live_offline_faqs", value: JSON.stringify(liveOffline) }),
+        api.post("/adminpanel/site-settings", { key: "live_online_faqs", value: JSON.stringify(liveOnline) }),
+      ]);
+      toast.success("Live event FAQs saved");
+      queryClient.invalidateQueries({ queryKey: ["site-settings-success"] });
+    } catch {
+      toast.error("Failed to save live FAQs");
+    } finally {
+      setSavingLiveFaqs(false);
     }
   };
 
@@ -310,6 +332,60 @@ export default function SuccessPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Skillocraft Live — Why attend FAQs */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
+        <div>
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Settings size={16} /> Skillocraft Live — &quot;Why you should attend&quot; FAQs</h2>
+          <p className="text-xs text-slate-400 mt-1">These show as two columns on the Skillocraft Live page. Add a question (heading) and its answer.</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {([
+            { label: "Why attend Offline events", list: liveOffline, setList: setLiveOffline },
+            { label: "Why attend Online events", list: liveOnline, setList: setLiveOnline },
+          ] as const).map(({ label, list, setList }) => (
+            <div key={label} className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-700">{label}</h3>
+              {list.map((item, idx) => (
+                <div key={idx} className="border border-slate-200 rounded-lg p-3 space-y-2 relative">
+                  <button
+                    onClick={() => setList(list.filter((_, i) => i !== idx))}
+                    className="absolute top-2 right-2 text-slate-400 hover:text-red-500"
+                    title="Remove"
+                  >
+                    <X size={14} />
+                  </button>
+                  <input
+                    value={item.question}
+                    onChange={(e) => setList(list.map((it, i) => i === idx ? { ...it, question: e.target.value } : it))}
+                    placeholder="Heading / question"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-7"
+                  />
+                  <textarea
+                    value={item.answer}
+                    onChange={(e) => setList(list.map((it, i) => i === idx ? { ...it, answer: e.target.value } : it))}
+                    placeholder="Answer / details"
+                    rows={2}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => setList([...list, { question: "", answer: "" }])}
+                className="w-full border border-dashed border-slate-300 rounded-lg py-2 text-sm text-slate-500 hover:border-indigo-400 hover:text-indigo-600 flex items-center justify-center gap-1"
+              >
+                <Plus size={14} /> Add point
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={saveLiveFaqs} disabled={savingLiveFaqs} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center gap-2">
+          {savingLiveFaqs && <Loader2 size={14} className="animate-spin" />}
+          Save Live FAQs
+        </button>
       </div>
 
       {showModal && (

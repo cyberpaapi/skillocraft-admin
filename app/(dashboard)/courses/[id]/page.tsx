@@ -63,6 +63,10 @@ interface Course {
   name: string;
   price: number;
   discountedPrice?: string | null;
+  lectures?: string | null;
+  duration?: string | null;
+  recommended?: boolean;
+  certificate?: string | null;
   language?: string;
   status: string;
   shortDescription?: string;
@@ -274,11 +278,19 @@ export default function CourseDetailPage() {
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editDiscountedPrice, setEditDiscountedPrice] = useState("");
+  const [editLectures, setEditLectures] = useState("");
+  const [editDuration, setEditDuration] = useState("");
+  const [editRecommended, setEditRecommended] = useState(false);
   const [editLanguage, setEditLanguage] = useState("");
   const [editShortDesc, setEditShortDesc] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [settingsInitialized, setSettingsInitialized] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Certificate state
+  const certInputRef = useRef<HTMLInputElement>(null);
+  const [pendingCertFile, setPendingCertFile] = useState<File | null>(null);
+  const [savingCert, setSavingCert] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["course", id],
@@ -324,6 +336,9 @@ export default function CourseDetailPage() {
       setEditName(data.name || "");
       setEditPrice(String(data.price || ""));
       setEditDiscountedPrice(data.discountedPrice || "");
+      setEditLectures(data.lectures || "");
+      setEditDuration(data.duration || "");
+      setEditRecommended(Boolean(data.recommended));
       setEditLanguage(data.language || "");
       setEditShortDesc(data.shortDescription || "");
       setEditStatus(data.status || "ACTIVE");
@@ -524,6 +539,9 @@ export default function CourseDetailPage() {
       fd.append("price", editPrice);
       if (editDiscountedPrice) fd.append("discountedPrice", editDiscountedPrice);
       else fd.append("discountedPrice", "");
+      fd.append("lectures", editLectures.trim());
+      fd.append("duration", editDuration.trim());
+      fd.append("recommended", editRecommended ? "true" : "false");
       if (editLanguage) fd.append("language", editLanguage);
       if (editShortDesc) fd.append("shortDescription", editShortDesc);
       fd.append("status", editStatus);
@@ -534,6 +552,30 @@ export default function CourseDetailPage() {
       toast.error("Failed to save settings");
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const saveCertificate = async () => {
+    if (!pendingCertFile) return;
+    setSavingCert(true);
+    try {
+      // Upload via the site-image endpoint to get a URL, then save it on the course
+      const upFd = new FormData();
+      upFd.append("key", "course_certificate_upload");
+      upFd.append("image", pendingCertFile);
+      const { data: up } = await api.post("/adminpanel/site-settings/image", upFd);
+      const url = up?.url || "";
+      if (!url) throw new Error("No URL");
+      const fd = new FormData();
+      fd.append("certificate", url);
+      await updateCourse(id, fd);
+      toast.success("Certificate updated");
+      setPendingCertFile(null);
+      queryClient.invalidateQueries({ queryKey: ["course", id] });
+    } catch {
+      toast.error("Failed to update certificate");
+    } finally {
+      setSavingCert(false);
     }
   };
 
@@ -630,6 +672,38 @@ export default function CourseDetailPage() {
         </div>
       </div>
 
+      {/* ── Course Certificate ── */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h2 className="font-semibold text-slate-800 mb-1 flex items-center gap-2"><ImageIcon size={16} /> Course Certificate</h2>
+        <p className="text-xs text-slate-400 mb-4">Optional. Shown on this course&apos;s page. If not set, the Default Certificate from Site Settings is used.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+          <div className="relative aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center">
+            {(pendingCertFile || data.certificate) ? (
+              <img
+                src={pendingCertFile ? URL.createObjectURL(pendingCertFile) : imgSrc(data.certificate || "")}
+                alt="Certificate" className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="text-center p-4 text-slate-300"><ImageIcon size={32} className="mx-auto mb-1" /><p className="text-xs">Using default certificate</p></div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => certInputRef.current?.click()}
+              className="flex items-center justify-center gap-1.5 border border-slate-200 text-slate-600 text-sm py-1.5 px-3 rounded-lg hover:bg-slate-50">
+              <Upload size={13} /> {data.certificate ? "Change" : "Upload"}
+            </button>
+            {pendingCertFile && (
+              <button onClick={saveCertificate} disabled={savingCert}
+                className="flex items-center justify-center gap-1.5 bg-indigo-600 text-white text-sm py-1.5 px-3 rounded-lg hover:bg-indigo-500 disabled:opacity-60">
+                {savingCert ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save
+              </button>
+            )}
+            <input ref={certInputRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => setPendingCertFile(e.target.files?.[0] || null)} />
+          </div>
+        </div>
+      </div>
+
       {/* ── General Settings ── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
         <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2"><Edit2 size={16} /> General Settings</h2>
@@ -657,6 +731,16 @@ export default function CourseDetailPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Number of Lectures</label>
+              <input value={editLectures} onChange={(e) => setEditLectures(e.target.value)} className={inputClass} placeholder="e.g. 12 (optional)" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Total Duration</label>
+              <input value={editDuration} onChange={(e) => setEditDuration(e.target.value)} className={inputClass} placeholder="e.g. 6h 30m (optional)" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Language</label>
               <input value={editLanguage} onChange={(e) => setEditLanguage(e.target.value)} className={inputClass} placeholder="Hindi" />
             </div>
@@ -667,6 +751,10 @@ export default function CourseDetailPage() {
                 <option value="INACTIVE">Inactive</option>
               </select>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="edit-recommended" checked={editRecommended} onChange={(e) => setEditRecommended(e.target.checked)} className="rounded" />
+            <label htmlFor="edit-recommended" className="text-sm text-slate-700">Show under &quot;Recommended Courses&quot;</label>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Short Description</label>

@@ -64,6 +64,11 @@ export default function CreateCoursePage() {
   const [teaserFile, setTeaserFile] = useState<File | null>(null);
   const [price, setPrice] = useState("");
   const [discountedPrice, setDiscountedPrice] = useState("");
+  const [lectures, setLectures] = useState("");
+  const [duration, setDuration] = useState("");
+  const [recommended, setRecommended] = useState(false);
+  const [certificateFile, setCertificateFile] = useState<File | null>(null);
+  const [certificatePreview, setCertificatePreview] = useState<string | null>(null);
 
   // Category select state
   const [categoryId, setCategoryId] = useState("");
@@ -162,6 +167,15 @@ export default function CreateCoursePage() {
     setImagePreview(URL.createObjectURL(file));
   };
 
+  // Upload a certificate image and return its URL (reuses the site-image endpoint)
+  const uploadCertificate = async (file: File): Promise<string> => {
+    const fd = new FormData();
+    fd.append("key", "course_certificate_upload");
+    fd.append("image", file);
+    const { data } = await api.post("/adminpanel/site-settings/image", fd);
+    return data?.url || "";
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!categoryId || categoryId === ADD_NEW) { toast.error("Please select or create a category"); return; }
@@ -193,6 +207,13 @@ export default function CreateCoursePage() {
       fd.append("longDescription", (form.elements.namedItem("longDescription") as HTMLTextAreaElement).value);
       fd.append("price", price);
       if (discountedPrice) fd.append("discountedPrice", discountedPrice);
+      if (lectures.trim()) fd.append("lectures", lectures.trim());
+      if (duration.trim()) fd.append("duration", duration.trim());
+      fd.append("recommended", recommended ? "true" : "false");
+      if (certificateFile) {
+        const certUrl = await uploadCertificate(certificateFile);
+        if (certUrl) fd.append("certificate", certUrl);
+      }
       fd.append("language", (form.elements.namedItem("language") as HTMLInputElement).value);
       fd.append("whatsAppLink", (form.elements.namedItem("whatsAppLink") as HTMLInputElement).value);
       fd.append("featured", (form.elements.namedItem("featured") as HTMLInputElement).checked ? "true" : "false");
@@ -361,6 +382,25 @@ export default function CreateCoursePage() {
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Number of Lectures</label>
+              <input
+                type="text" placeholder="e.g. 12" className={inputClass}
+                value={lectures} onChange={(e) => setLectures(e.target.value)}
+              />
+              <p className="text-xs text-slate-400 mt-1">Optional. Overrides the auto-counted lecture number on the course page.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Total Duration</label>
+              <input
+                type="text" placeholder="e.g. 6h 30m" className={inputClass}
+                value={duration} onChange={(e) => setDuration(e.target.value)}
+              />
+              <p className="text-xs text-slate-400 mt-1">Optional. Overrides the auto-calculated total length.</p>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Language *</label>
             <input name="language" required defaultValue="Hindi" placeholder="Hindi" className={inputClass} />
@@ -374,6 +414,11 @@ export default function CreateCoursePage() {
           <div className="flex items-center gap-2">
             <input type="checkbox" name="featured" id="featured" value="true" className="rounded" />
             <label htmlFor="featured" className="text-sm text-slate-700">Feature this course on homepage</label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="recommended" checked={recommended} onChange={(e) => setRecommended(e.target.checked)} className="rounded" />
+            <label htmlFor="recommended" className="text-sm text-slate-700">Show under &quot;Recommended Courses&quot;</label>
           </div>
         </div>
 
@@ -404,6 +449,28 @@ export default function CreateCoursePage() {
               </div>
             )}
             <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+          </label>
+        </div>
+
+        {/* Course Certificate (optional override) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <h2 className="font-medium text-slate-700 text-sm uppercase tracking-wide mb-1">Course Certificate</h2>
+          <p className="text-xs text-slate-400 mb-4">Optional. A certificate image specific to this course. If not set, the Default Certificate from Site Settings is shown.</p>
+          <label className="cursor-pointer block">
+            {certificatePreview ? (
+              <img src={certificatePreview} alt="Certificate preview" className="w-full max-h-48 object-contain rounded-lg border border-slate-200" />
+            ) : (
+              <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors">
+                <Upload size={20} className="mx-auto mb-1 text-slate-400" />
+                <p className="text-sm text-slate-500">Click to upload certificate image</p>
+                <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 10MB</p>
+              </div>
+            )}
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+              const f = e.target.files?.[0] || null;
+              setCertificateFile(f);
+              setCertificatePreview(f ? URL.createObjectURL(f) : null);
+            }} />
           </label>
         </div>
 
