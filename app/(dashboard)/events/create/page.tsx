@@ -188,8 +188,7 @@ export default function CreateEventPage() {
           <label className={labelClass}>Mode</label>
           <select className={inputClass} value={form.mode} onChange={(e) => set("mode", e.target.value)}>
             <option value="Online">Online</option>
-            <option value="Outdoor">Outdoor</option>
-            <option value="Hybrid">Hybrid</option>
+            <option value="Offline">Offline</option>
           </select>
         </div>
 

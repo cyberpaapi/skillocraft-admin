@@ -271,6 +271,7 @@ export default function CourseDetailPage() {
 
   // DLC state
   const [dlcFile, setDlcFile] = useState<File | null>(null);
+  const [dlcName, setDlcName] = useState("");
   const [uploadingDlc, setUploadingDlc] = useState(false);
   const dlcInputRef = useRef<HTMLInputElement>(null);
 
@@ -470,13 +471,16 @@ export default function CourseDetailPage() {
 
   const handleUploadDlc = async () => {
     if (!dlcFile) return;
+    if (!dlcName.trim()) { toast.error("Please enter a name for this download"); return; }
     setUploadingDlc(true);
     try {
       const fd = new FormData();
       fd.append("file", dlcFile);
+      fd.append("fileName", dlcName.trim());
       await addCourseDownload(id, fd);
       toast.success("File uploaded");
       setDlcFile(null);
+      setDlcName("");
       if (dlcInputRef.current) dlcInputRef.current.value = "";
       refetchDownloads();
     } catch (err: any) {
@@ -997,13 +1001,19 @@ export default function CourseDetailPage() {
 
         <div className="px-6 py-5 border-t border-slate-100 bg-slate-50 space-y-3">
           <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Add Downloadable File</p>
+          <input
+            value={dlcName}
+            onChange={(e) => setDlcName(e.target.value)}
+            placeholder="Download name (e.g. Workbook PDF) *"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
           <div className="flex gap-3 items-center">
             <label className="flex-1 flex items-center gap-2 border border-dashed border-slate-300 rounded-lg p-3 cursor-pointer hover:border-indigo-400 text-sm text-slate-500">
               <Upload size={14} />
               {dlcFile ? <span className="text-indigo-600 font-medium truncate">{dlcFile.name}</span> : "Click to select file (PDF, ZIP, etc.)"}
               <input ref={dlcInputRef} type="file" className="hidden" onChange={(e) => setDlcFile(e.target.files?.[0] || null)} />
             </label>
-            <button onClick={handleUploadDlc} disabled={!dlcFile || uploadingDlc}
+            <button onClick={handleUploadDlc} disabled={!dlcFile || !dlcName.trim() || uploadingDlc}
               className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center gap-2 flex-shrink-0">
               {uploadingDlc && <Loader2 size={14} className="animate-spin" />}
               {uploadingDlc ? "Uploading..." : "Upload"}

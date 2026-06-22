@@ -219,8 +219,6 @@ export default function CreateCoursePage() {
       fd.append("featured", (form.elements.namedItem("featured") as HTMLInputElement).checked ? "true" : "false");
       if (imageFile) fd.append("image", imageFile);
       if (teaserFile) fd.append("teaserVideo", teaserFile);
-      const pdfFileInput = form.elements.namedItem("pdfFile") as HTMLInputElement;
-      if (pdfFileInput?.files?.[0]) fd.append("pdfFile", pdfFileInput.files[0]);
 
       await createCourse(fd);
       toast.success("Course created!");
@@ -501,20 +499,7 @@ export default function CreateCoursePage() {
           </label>
         </div>
 
-        {/* Downloadable Content (PDF) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="font-medium text-slate-700 text-sm uppercase tracking-wide mb-1">Downloadable Content</h2>
-          <p className="text-xs text-slate-400 mb-4">Enrolled students can download this file (e.g. PDF notes, workbook).</p>
-          <label className="cursor-pointer flex items-center gap-3 border-2 border-dashed border-slate-200 rounded-lg p-4 hover:border-indigo-400 transition-colors">
-            <Upload size={18} className="text-slate-400 flex-shrink-0" />
-            <span className="text-sm text-slate-500" id="pdf-label">Click to upload PDF / document</span>
-            <input type="file" accept=".pdf,.doc,.docx" name="pdfFile" className="hidden" onChange={(e) => {
-              const f = e.target.files?.[0];
-              const label = document.getElementById("pdf-label");
-              if (f && label) label.textContent = f.name;
-            }} />
-          </label>
-        </div>
+        {/* Downloadable content is managed per-file (with names) from the course edit screen after creation. */}
 
         {/* Submit */}
         <div className="flex gap-3">

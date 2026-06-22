@@ -118,13 +118,11 @@ export default function BlogsPage() {
   };
 
   const { mutate: toggleFeatured } = useMutation({
-    mutationFn: ({ id, featured }: { id: string; featured: boolean }) => {
-      const fd = new FormData();
-      fd.append("featured", String(!featured));
-      return api.put(`/adminpanel/blogs/${id}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
-    },
+    // Send as JSON (no file involved) so it never touches the multipart upload path
+    mutationFn: ({ id, featured }: { id: string; featured: boolean }) =>
+      api.put(`/adminpanel/blogs/${id}`, { featured: !featured }),
     onSuccess: () => { toast.success("Updated"); queryClient.invalidateQueries({ queryKey: ["blogs"] }); },
-    onError: () => toast.error("Failed to update"),
+    onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to update"),
   });
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {

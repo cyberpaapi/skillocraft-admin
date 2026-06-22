@@ -6,13 +6,22 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
-interface FAQ { id: string; question: string; answer: string; status: string; }
-interface FormValues { question: string; answer: string; }
+interface FAQ { id: string; question: string; answer: string; status: string; location?: string; }
+interface FormValues { question: string; answer: string; location: string; }
+
+const LOCATIONS: { value: string; label: string }[] = [
+  { value: "homepage", label: "Homepage" },
+  { value: "live_online", label: "Live Online" },
+  { value: "live_offline", label: "Live Offline" },
+  { value: "marketplace", label: "Marketplace" },
+  { value: "blogs", label: "Blogs" },
+];
+const locationLabel = (v?: string) => LOCATIONS.find((l) => l.value === v)?.label || "Homepage";
 
 export default function FAQsPage() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
-  const { register, handleSubmit, reset } = useForm<FormValues>();
+  const { register, handleSubmit, reset } = useForm<FormValues>({ defaultValues: { location: "homepage" } });
 
   const { data, isLoading } = useQuery({
     queryKey: ["faqs"],
@@ -63,6 +72,7 @@ export default function FAQsPage() {
                   <p className="text-sm text-slate-500 mt-1">{faq.answer}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{locationLabel(faq.location)}</span>
                   <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${faq.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{faq.status}</span>
                   <button onClick={() => { if (confirm("Delete this FAQ?")) remove(faq.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600"><Trash2 size={14} /></button>
                 </div>
@@ -89,6 +99,14 @@ export default function FAQsPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Answer *</label>
                 <textarea {...register("answer", { required: true })} rows={4} placeholder="Detailed answer..."
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Display on *</label>
+                <select {...register("location", { required: true })}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                  {LOCATIONS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">Where this FAQ appears. Course pages have their own FAQs set per course.</p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}

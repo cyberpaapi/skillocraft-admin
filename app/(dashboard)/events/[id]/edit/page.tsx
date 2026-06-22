@@ -55,6 +55,7 @@ export default function EditEventPage() {
           date: e.date ? e.date.split("T")[0] : "",
           time: e.time || "",
           venue: e.venue || "",
+          city: e.city || "",
           price: e.price || "",
           category: e.category || "General",
           mode: e.mode || "Online",
@@ -230,8 +231,7 @@ export default function EditEventPage() {
           <label className={labelClass}>Mode</label>
           <select className={inputClass} value={form.mode} onChange={(e) => set("mode", e.target.value)}>
             <option value="Online">Online</option>
-            <option value="Outdoor">Outdoor</option>
-            <option value="Hybrid">Hybrid</option>
+            <option value="Offline">Offline</option>
           </select>
         </div>
 
