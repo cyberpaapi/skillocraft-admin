@@ -7,12 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Upload, Loader2, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
-const EVENT_CATEGORIES = [
-  "Outdoor Live Events",
-  "Online Live Events",
-  "Explore New World",
-  "Baking", "Banking", "Perfume", "Makeup", "Cooking", "Healthcare", "Art & Craft", "Photography", "General", "Workshop", "Seminar", "Festival",
-];
+const EVENT_CATEGORIES = ["General", "Workshop", "Seminar", "Festival"];
 const CITIES = ["Mumbai", "Delhi-NCR", "Bengaluru", "Hyderabad", "Chandigarh", "Ahmedabad", "Pune", "Chennai", "Kolkata", "Kochi", "Online", "Other"];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -226,12 +221,12 @@ export default function EditEventPage() {
           </div>
         </div>
 
-        {/* Mode */}
+        {/* Mode — decides which section the event shows in on the live page */}
         <div>
           <label className={labelClass}>Mode</label>
           <select className={inputClass} value={form.mode} onChange={(e) => set("mode", e.target.value)}>
-            <option value="Online">Online</option>
-            <option value="Offline">Offline</option>
+            <option value="Online">Online Live Events</option>
+            <option value="Offline">Outdoor Live Events</option>
           </select>
         </div>
 
