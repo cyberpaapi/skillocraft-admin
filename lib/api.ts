@@ -60,6 +60,10 @@ export const deleteCourse = (id: string) => api.delete(`/adminpanel/courses/${id
 export const createProduct = (data: { name: string; description?: string; courseId: string; lessonType: string; textContent?: string }) =>
   api.post("/adminpanel/products", data);
 
+// Edit an existing lesson's name / description
+export const updateLesson = (productId: string, data: { name?: string; description?: string }) =>
+  api.put(`/adminpanel/products/${productId}`, data);
+
 export const getProduct = (productId: string) => api.get(`/course/product/${productId}`);
 
 export const deleteProductVideo = (productId: string) =>

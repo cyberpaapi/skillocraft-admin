@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  getCourse, updateCourse, createProduct, deleteProductVideo, api,
+  getCourse, updateCourse, createProduct, updateLesson, deleteProductVideo, api,
   getUploadUrl, uploadToR2, confirmUpload, startHls, reorderLessons,
   getCourseFaqs, createCourseFaq, deleteCourseFaq,
   adminAddReview, adminDeleteReview,
@@ -229,10 +229,108 @@ function AddLessonModal({ courseId, onClose, onSuccess }: { courseId: string; on
   );
 }
 
+function EditLessonModal({ product, onClose, onSuccess }: { product: Product; onClose: () => void; onSuccess: () => void }) {
+  const [name, setName] = useState(product.name || "");
+  const [description, setDescription] = useState(product.discription || "");
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [phase, setPhase] = useState<UploadPhase>("idle");
+  const [uploadPct, setUploadPct] = useState(0);
+
+  const hasVideo = product.lessonType === "VIDEO" || product.lessonType === "BOTH" || !product.lessonType;
+  const busy = phase !== "idle";
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!name.trim()) { toast.error("Lesson name is required"); return; }
+    try {
+      setPhase("creating");
+      await updateLesson(product.id, { name: name.trim(), description });
+
+      if (videoFile) {
+        setPhase("uploading");
+        setUploadPct(0);
+        const { data: urlData } = await getUploadUrl(product.id, videoFile.name, videoFile.type || "video/mp4");
+        await uploadToR2(urlData.putUrl, videoFile, setUploadPct);
+        await confirmUpload(product.id);
+      }
+
+      setPhase("done");
+      toast.success("Lesson updated!");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update lesson");
+      setPhase("idle");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-semibold text-slate-800 text-lg">Edit Lesson</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Lesson Name *</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} required
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
+              placeholder="What will students learn?"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+          </div>
+
+          {hasVideo && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Replace Video (optional)</label>
+              <label className="cursor-pointer block">
+                <div className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${videoFile ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-400"}`}>
+                  {videoFile ? (
+                    <div className="flex items-center justify-center gap-2 text-indigo-600">
+                      <Video size={16} /><p className="text-sm font-medium truncate max-w-xs">{videoFile.name}</p>
+                    </div>
+                  ) : (
+                    <><Upload size={20} className="mx-auto mb-1 text-slate-400" /><p className="text-xs text-slate-500">{product.videoLink ? "Click to replace the current video (MP4)" : "Click to upload a video (MP4)"}</p></>
+                  )}
+                </div>
+                <input type="file" accept="video/*,video/mp4" className="hidden" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
+              </label>
+              <p className="text-[11px] text-slate-400 mt-1">Leave empty to keep the existing video. A new upload replaces it and re-processes.</p>
+            </div>
+          )}
+
+          {phase === "uploading" && (
+            <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4 space-y-2">
+              <div className="flex justify-between text-xs font-medium text-indigo-700"><span>Uploading...</span><span>{uploadPct}%</span></div>
+              <div className="w-full bg-indigo-100 rounded-full h-2"><div className="bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadPct}%` }} /></div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} disabled={busy}
+              className="flex-1 border border-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-40">Cancel</button>
+            <button type="submit" disabled={busy}
+              className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-60 flex items-center justify-center gap-2">
+              {busy && <Loader2 size={14} className="animate-spin" />}
+              {phase === "creating" ? "Saving..." : phase === "uploading" ? `Uploading ${uploadPct}%` : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [showAddLesson, setShowAddLesson] = useState(false);
+  const [editingLesson, setEditingLesson] = useState<Product | null>(null);
 
   // Drag-and-drop reorder state
   const [orderedProducts, setOrderedProducts] = useState<Product[]>([]);
@@ -865,6 +963,13 @@ export default function CourseDetailPage() {
                     </>
                   )}
                   <button
+                    onClick={() => setEditingLesson(product)}
+                    title="Edit lesson"
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
                     onClick={() => { setPendingThumbLessonId(product.id); thumbInputRef.current?.click(); }}
                     disabled={uploadingThumbId === product.id}
                     title="Upload thumbnail"
@@ -1024,6 +1129,11 @@ export default function CourseDetailPage() {
 
       {showAddLesson && (
         <AddLessonModal courseId={id} onClose={() => setShowAddLesson(false)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["course", id] })} />
+      )}
+
+      {editingLesson && (
+        <EditLessonModal product={editingLesson} onClose={() => setEditingLesson(null)}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ["course", id] })} />
       )}
     </div>
