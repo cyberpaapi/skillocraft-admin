@@ -66,6 +66,7 @@ interface Course {
   lectures?: string | null;
   duration?: string | null;
   recommended?: boolean;
+  featured?: boolean;
   certificate?: string | null;
   language?: string;
   status: string;
@@ -380,6 +381,7 @@ export default function CourseDetailPage() {
   const [editLectures, setEditLectures] = useState("");
   const [editDuration, setEditDuration] = useState("");
   const [editRecommended, setEditRecommended] = useState(false);
+  const [editFeatured, setEditFeatured] = useState(false);
   const [editLanguage, setEditLanguage] = useState("");
   const [editShortDesc, setEditShortDesc] = useState("");
   const [editStatus, setEditStatus] = useState("");
@@ -438,6 +440,7 @@ export default function CourseDetailPage() {
       setEditLectures(data.lectures || "");
       setEditDuration(data.duration || "");
       setEditRecommended(Boolean(data.recommended));
+      setEditFeatured(Boolean(data.featured));
       setEditLanguage(data.language || "");
       setEditShortDesc(data.shortDescription || "");
       setEditStatus(data.status || "ACTIVE");
@@ -644,6 +647,7 @@ export default function CourseDetailPage() {
       fd.append("lectures", editLectures.trim());
       fd.append("duration", editDuration.trim());
       fd.append("recommended", editRecommended ? "true" : "false");
+      fd.append("featured", editFeatured ? "true" : "false");
       if (editLanguage) fd.append("language", editLanguage);
       if (editShortDesc) fd.append("shortDescription", editShortDesc);
       fd.append("status", editStatus);
@@ -857,6 +861,10 @@ export default function CourseDetailPage() {
           <div className="flex items-center gap-2">
             <input type="checkbox" id="edit-recommended" checked={editRecommended} onChange={(e) => setEditRecommended(e.target.checked)} className="rounded" />
             <label htmlFor="edit-recommended" className="text-sm text-slate-700">Show under &quot;Recommended Courses&quot;</label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="edit-featured" checked={editFeatured} onChange={(e) => setEditFeatured(e.target.checked)} className="rounded" />
+            <label htmlFor="edit-featured" className="text-sm text-slate-700">Top Trending Course</label>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Short Description</label>

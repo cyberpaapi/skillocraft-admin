@@ -11,30 +11,7 @@ import Link from "next/link";
 interface Category { id: string; name: string; }
 interface Creator { id: string; name: string; designation?: string; }
 
-// Pre-populated fallback data shown when DB is empty
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: "default:Baking", name: "Baking" },
-  { id: "default:Banking", name: "Banking" },
-  { id: "default:Perfume", name: "Perfume" },
-  { id: "default:Makeup", name: "Makeup" },
-  { id: "default:Cooking", name: "Cooking" },
-  { id: "default:Healthcare", name: "Healthcare" },
-];
-
-const DEFAULT_CREATORS: Creator[] = [
-  { id: "default:Reshmi Yadav", name: "Reshmi Yadav", designation: "Baking Expert" },
-  { id: "default:Nishant Dave", name: "Nishant Dave", designation: "Perfume Artist" },
-  { id: "default:Dakshya Shastri", name: "Dakshya Shastri", designation: "Finance Educator" },
-];
-
 const ADD_NEW = "__add_new__";
-
-// Merge API data with defaults, deduplicating by lowercase name
-function mergeWithDefaults<T extends { id: string; name: string }>(api: T[], defaults: T[]): T[] {
-  const apiNames = new Set(api.map((x) => x.name.toLowerCase()));
-  const unique = defaults.filter((d) => !apiNames.has(d.name.toLowerCase()));
-  return [...api, ...unique];
-}
 
 // Create a category by name (no image required) and return its real ID
 async function ensureCategoryExists(name: string): Promise<string> {
@@ -97,9 +74,9 @@ export default function CreateCoursePage() {
   const apiCategories = categoriesData || [];
   const apiCreators = creatorsData || [];
 
-  // Merge API data + local newly added + defaults
-  const allCategories = mergeWithDefaults([...apiCategories, ...localCategories], DEFAULT_CATEGORIES);
-  const allCreators = mergeWithDefaults([...apiCreators, ...localCreators], DEFAULT_CREATORS);
+  // Only real categories/creators from the DB (plus any just added locally)
+  const allCategories = [...apiCategories, ...localCategories];
+  const allCreators = [...apiCreators, ...localCreators];
 
   const handleAddCategory = async () => {
     const name = newCategoryName.trim();
@@ -186,18 +163,8 @@ export default function CreateCoursePage() {
     const form = e.currentTarget;
 
     try {
-      // Resolve default: IDs — create real DB entries on demand
-      let resolvedCategoryId = categoryId;
-      let resolvedCreatorId = creatorId;
-
-      if (categoryId.startsWith("default:")) {
-        const name = categoryId.replace("default:", "");
-        resolvedCategoryId = await ensureCategoryExists(name);
-      }
-      if (creatorId.startsWith("default:")) {
-        const item = DEFAULT_CREATORS.find((c) => c.id === creatorId);
-        resolvedCreatorId = await ensureCreatorExists(item?.name || creatorId.replace("default:", ""), item?.designation);
-      }
+      const resolvedCategoryId = categoryId;
+      const resolvedCreatorId = creatorId;
 
       const fd = new FormData();
       fd.append("name", (form.elements.namedItem("name") as HTMLInputElement).value);
@@ -411,7 +378,7 @@ export default function CreateCoursePage() {
 
           <div className="flex items-center gap-2">
             <input type="checkbox" name="featured" id="featured" value="true" className="rounded" />
-            <label htmlFor="featured" className="text-sm text-slate-700">Feature this course on homepage</label>
+            <label htmlFor="featured" className="text-sm text-slate-700">Top Trending Course</label>
           </div>
 
           <div className="flex items-center gap-2">
