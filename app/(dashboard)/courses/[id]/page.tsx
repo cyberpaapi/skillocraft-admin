@@ -968,6 +968,13 @@ export default function CourseDetailPage() {
                           <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">No video</span>
                         )
                       )}
+                      {product.videoLink && (
+                        <button onClick={() => { if (confirm("Remove this video from the lesson?")) removeVideo(product.id); }}
+                          title="Remove video"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200">
+                          <Trash2 size={10} /> Remove Video
+                        </button>
+                      )}
                     </>
                   )}
                   <button
