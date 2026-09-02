@@ -82,6 +82,19 @@ export const startHls = (productId: string) =>
 export const reorderLessons = (items: { id: string; order: number }[]) =>
   api.patch("/adminpanel/products/reorder", { items });
 
+// Captions (CC) — generation is admin-only; students only read the finished track
+export const generateLessonCaptions = (productId: string, force = false) =>
+  api.post(`/adminpanel/products/${productId}/captions`, { force });
+
+export const deleteLessonCaptions = (productId: string) =>
+  api.delete(`/adminpanel/products/${productId}/captions`);
+
+export const generateCourseCaptions = (courseId: string, force = false) =>
+  api.post(`/adminpanel/courses/${courseId}/captions`, { force });
+
+export const getCourseCaptionStatus = (courseId: string) =>
+  api.get(`/adminpanel/courses/${courseId}/captions/status`);
+
 // Course FAQs
 export const getCourseFaqs = (courseId: string) =>
   api.get(`/course-all-faqs/${courseId}`);

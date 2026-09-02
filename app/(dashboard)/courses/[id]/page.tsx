@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getCourse, updateCourse, createProduct, updateLesson, deleteProductVideo, api,
   getUploadUrl, uploadToR2, confirmUpload, startHls, reorderLessons,
+  generateLessonCaptions, generateCourseCaptions,
   getCourseFaqs, createCourseFaq, deleteCourseFaq,
   adminAddReview, adminDeleteReview,
   getCourseDownloads, addCourseDownload, deleteCourseDownload,
@@ -26,6 +27,7 @@ interface Product {
   id: string;
   name: string;
   videoStatus?: string;
+  captionStatus?: string;
   discription?: string;
   lessonType?: LessonType;
   videoLink?: string;
@@ -401,7 +403,10 @@ export default function CourseDetailPage() {
     },
     refetchInterval: (query) => {
       const products = (query.state.data as Course | undefined)?.products ?? [];
-      return products.some(p => p.videoStatus === "converting") ? 8000 : false;
+      const busy = products.some(
+        p => p.videoStatus === "converting" || p.captionStatus === "processing"
+      );
+      return busy ? 8000 : false;
     },
   });
 
@@ -612,6 +617,41 @@ export default function CourseDetailPage() {
     onSuccess: () => { toast.success("HLS conversion started"); queryClient.invalidateQueries({ queryKey: ["course", id] }); },
     onError: () => toast.error("Failed to start HLS conversion"),
   });
+
+  // Captions are generated server-side; the row's captionStatus drives the UI.
+  const { mutate: genCaptions, isPending: genCaptionsPending } = useMutation({
+    mutationFn: (productId: string) => generateLessonCaptions(productId),
+    onSuccess: () => { toast.success("Caption generation started"); queryClient.invalidateQueries({ queryKey: ["course", id] }); },
+    onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to start caption generation"),
+  });
+
+  const { mutate: genCourseCaptions, isPending: genCourseCaptionsPending } = useMutation({
+    mutationFn: () => generateCourseCaptions(id),
+    onSuccess: (res: any) => {
+      const d = res?.data || {};
+      if (!d.queued) {
+        toast.success(
+          d.skippedAlreadyDone
+            ? `All ${d.skippedAlreadyDone} lesson(s) already have captions`
+            : "Nothing to generate"
+        );
+      } else {
+        const skipped = d.skippedAlreadyDone
+          ? `, ${d.skippedAlreadyDone} already done`
+          : "";
+        toast.success(`Generating captions for ${d.queued} lesson(s)${skipped}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["course", id] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to start caption generation"),
+  });
+
+  // Only videos we host ourselves can be transcribed (see backend isCaptionable).
+  const ccEligible = orderedProducts.filter(p => p.videoLink?.startsWith("videos/"));
+  const ccTotal = ccEligible.length;
+  const ccReady = ccEligible.filter(p => p.captionStatus === "ready").length;
+  const ccProcessing = ccEligible.filter(p => p.captionStatus === "processing").length;
+  const ccFailed = ccEligible.filter(p => p.captionStatus === "failed").length;
 
   const { mutate: removeProduct } = useMutation({
     mutationFn: (productId: string) => api.delete(`/adminpanel/products/${productId}`),
@@ -905,12 +945,44 @@ export default function CourseDetailPage() {
                 if (file && pendingThumbLessonId) handleThumbUpload(file, pendingThumbLessonId);
                 e.target.value = "";
               }} />
+            {ccTotal > 0 && (
+              <button
+                onClick={() => {
+                  if (confirm("Generate English captions for every video lesson in this course?\n\nLessons that already have captions are skipped, so this won't re-spend credits.")) {
+                    genCourseCaptions();
+                  }
+                }}
+                disabled={genCourseCaptionsPending || ccProcessing > 0}
+                title="Auto-generate English captions for the whole course"
+                className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium px-3 py-2 rounded-lg disabled:opacity-60">
+                {genCourseCaptionsPending || ccProcessing > 0
+                  ? <><Loader2 size={14} className="animate-spin" /> Captions {ccReady}/{ccTotal}</>
+                  : <><span className="font-bold text-[11px] leading-none border border-white/70 rounded px-1 py-0.5">CC</span> Generate Captions</>}
+              </button>
+            )}
             <button onClick={() => setShowAddLesson(true)}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg">
               <Plus size={16} /> Add Lesson
             </button>
           </div>
         </div>
+
+        {ccTotal > 0 && (ccProcessing > 0 || ccReady > 0 || ccFailed > 0) && (
+          <div className="px-6 py-3 border-b border-slate-100 bg-slate-50">
+            <div className="flex items-center justify-between text-xs text-slate-600 mb-1.5">
+              <span>
+                Captions: <span className="font-medium text-slate-800">{ccReady}</span> of {ccTotal} ready
+                {ccProcessing > 0 && <span className="text-amber-600"> · {ccProcessing} generating</span>}
+                {ccFailed > 0 && <span className="text-red-600"> · {ccFailed} failed</span>}
+              </span>
+              {ccProcessing > 0 && <span className="text-slate-400">refreshing automatically…</span>}
+            </div>
+            <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${ccTotal ? (ccReady / ccTotal) * 100 : 0}%` }} />
+            </div>
+          </div>
+        )}
 
         {orderedProducts.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
@@ -974,6 +1046,35 @@ export default function CourseDetailPage() {
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200">
                           <Trash2 size={10} /> Remove Video
                         </button>
+                      )}
+                      {product.videoLink?.startsWith("videos/") && (
+                        <>
+                          {product.captionStatus === "ready" && (
+                            <span title="English captions available"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                              <CheckCircle size={10} /> CC
+                            </span>
+                          )}
+                          {product.captionStatus === "processing" && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                              <Loader2 size={10} className="animate-spin" /> Generating CC…
+                            </span>
+                          )}
+                          {product.captionStatus === "failed" && (
+                            <button onClick={() => genCaptions(product.id)} disabled={genCaptionsPending}
+                              title="Caption generation failed — click to retry"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-60">
+                              <AlertCircle size={10} /> CC failed — retry
+                            </button>
+                          )}
+                          {(!product.captionStatus || product.captionStatus === "none") && (
+                            <button onClick={() => genCaptions(product.id)} disabled={genCaptionsPending}
+                              title="Auto-generate English captions for this lesson"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700 hover:bg-sky-200 disabled:opacity-60">
+                              <Zap size={10} /> Generate CC
+                            </button>
+                          )}
+                        </>
                       )}
                     </>
                   )}
