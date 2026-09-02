@@ -17,7 +17,9 @@ import {
   ArrowLeft, Plus, Trash2, Video, Loader2, Upload, X, FileText, Layers,
   Zap, CheckCircle, AlertCircle, GripVertical, FolderOpen, Save,
   Image as ImageIcon, Star, MessageSquare, HelpCircle, Edit2, Download,
+  Music,
 } from "lucide-react";
+import AudioTracksModal from "@/components/AudioTracksModal";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -647,6 +649,8 @@ export default function CourseDetailPage() {
   });
 
   // Only videos we host ourselves can be transcribed (see backend isCaptionable).
+  const [audioLesson, setAudioLesson] = useState<Product | null>(null);
+
   const ccEligible = orderedProducts.filter(p => p.videoLink?.startsWith("videos/"));
   const ccTotal = ccEligible.length;
   const ccReady = ccEligible.filter(p => p.captionStatus === "ready").length;
@@ -1076,6 +1080,13 @@ export default function CourseDetailPage() {
                           )}
                         </>
                       )}
+                      {product.videoLink && (
+                        <button onClick={() => setAudioLesson(product)}
+                          title="Manage alternate-language audio tracks"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200">
+                          <Music size={10} /> Audio
+                        </button>
+                      )}
                     </>
                   )}
                   <button
@@ -1251,6 +1262,14 @@ export default function CourseDetailPage() {
       {editingLesson && (
         <EditLessonModal product={editingLesson} onClose={() => setEditingLesson(null)}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ["course", id] })} />
+      )}
+
+      {audioLesson && (
+        <AudioTracksModal
+          productId={audioLesson.id}
+          lessonName={audioLesson.name}
+          onClose={() => setAudioLesson(null)}
+        />
       )}
     </div>
   );

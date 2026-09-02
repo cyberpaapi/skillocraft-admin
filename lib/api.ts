@@ -95,6 +95,21 @@ export const generateCourseCaptions = (courseId: string, force = false) =>
 export const getCourseCaptionStatus = (courseId: string) =>
   api.get(`/adminpanel/courses/${courseId}/captions/status`);
 
+// Alternate-language audio tracks
+export const getLanguages = () => api.get("/adminpanel/languages");
+export const createLanguageOption = (name: string, code?: string) =>
+  api.post("/adminpanel/languages", { name, code });
+export const getAudioTracks = (productId: string) =>
+  api.get(`/adminpanel/products/${productId}/audio-tracks`);
+export const getAudioUploadUrl = (
+  productId: string,
+  body: { language: string; fileName: string; contentType: string }
+) => api.post(`/adminpanel/products/${productId}/audio-tracks/upload-url`, body);
+export const createAudioTrack = (productId: string, body: { language: string; key: string }) =>
+  api.post(`/adminpanel/products/${productId}/audio-tracks`, body);
+export const deleteAudioTrack = (trackId: string) =>
+  api.delete(`/adminpanel/audio-tracks/${trackId}`);
+
 // Course FAQs
 export const getCourseFaqs = (courseId: string) =>
   api.get(`/course-all-faqs/${courseId}`);
