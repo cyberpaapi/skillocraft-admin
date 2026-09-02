@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Settings, Video, Upload, Loader2, CheckCircle, Link2, Award, MessageCircle } from "lucide-react";
+import { Settings, Video, Upload, Loader2, CheckCircle, Link2, Award, MessageCircle, KeyRound } from "lucide-react";
 import { imgSrc } from "@/lib/utils";
 
 export default function SiteSettingsPage() {
@@ -37,6 +37,13 @@ export default function SiteSettingsPage() {
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [savingSocials, setSavingSocials] = useState(false);
 
+  // Keys & integrations
+  const [gaId, setGaId] = useState("");
+  const [fbPixelId, setFbPixelId] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [openaiMask, setOpenaiMask] = useState<string | null>(null);
+  const [savingKeys, setSavingKeys] = useState(false);
+
   const inputClass = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
 
   useEffect(() => {
@@ -54,7 +61,47 @@ export default function SiteSettingsPage() {
         if (d.course_whatsapp_image) setWaImage(d.course_whatsapp_image);
       })
       .catch(() => {});
+
+    // Secrets never come back from the public endpoint, so keys are read from
+    // the admin listing where they arrive masked.
+    api.get("/adminpanel/site-settings")
+      .then(({ data }) => {
+        for (const row of (data?.data || []) as { key: string; value: string | null; isSet: boolean }[]) {
+          if (row.key === "google_analytics_id") setGaId(row.value || "");
+          if (row.key === "facebook_pixel_id") setFbPixelId(row.value || "");
+          if (row.key === "openai_api_key" && row.isSet) setOpenaiMask(row.value);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const saveKeys = async () => {
+    setSavingKeys(true);
+    try {
+      const writes = [
+        api.post("/adminpanel/site-settings", { key: "google_analytics_id", value: gaId.trim() }),
+        api.post("/adminpanel/site-settings", { key: "facebook_pixel_id", value: fbPixelId.trim() }),
+      ];
+      // Only send the secret when a new one was actually typed, so leaving the
+      // field blank keeps the stored key intact.
+      if (openaiKey.trim()) {
+        writes.push(api.post("/adminpanel/site-settings", { key: "openai_api_key", value: openaiKey.trim() }));
+      }
+      await Promise.all(writes);
+
+      if (openaiKey.trim()) {
+        const v = openaiKey.trim();
+        setOpenaiMask(v.length <= 8 ? "****" : `${"*".repeat(8)}${v.slice(-4)}`);
+        setOpenaiKey("");
+      }
+      toast.success("Keys saved");
+      queryClient.invalidateQueries({ queryKey: ["site-settings"] });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to save keys");
+    } finally {
+      setSavingKeys(false);
+    }
+  };
 
   const saveSocials = async () => {
     setSavingSocials(true);
@@ -157,6 +204,64 @@ export default function SiteSettingsPage() {
       <div>
         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Settings size={20} /> Site Settings</h1>
         <p className="text-sm text-slate-500 mt-1">Manage homepage content and media settings</p>
+      </div>
+
+      {/* Keys & Integrations */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+            <KeyRound size={18} /> Keys & Integrations
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Analytics IDs load on the public site. The OpenAI key stays server-side.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Google Analytics measurement ID
+          </label>
+          <input value={gaId} onChange={(e) => setGaId(e.target.value)}
+            placeholder="G-XXXXXXXXXX" className={inputClass} />
+          <p className="text-xs text-slate-400 mt-1">
+            Loads gtag.js across the main site. Leave empty to switch analytics off.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Facebook Pixel ID
+          </label>
+          <input value={fbPixelId} onChange={(e) => setFbPixelId(e.target.value)}
+            placeholder="1234567890123456" className={inputClass} />
+          <p className="text-xs text-slate-400 mt-1">
+            Loads the Meta Pixel and fires PageView. Leave empty to switch it off.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            OpenAI API key
+          </label>
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={openaiKey}
+            onChange={(e) => setOpenaiKey(e.target.value)}
+            placeholder={openaiMask ? `Configured (${openaiMask}) — type to replace` : "sk-..."}
+            className={inputClass}
+          />
+          <p className="text-xs text-slate-400 mt-1">
+            Used to generate lesson captions. Never sent to the public site, and
+            shown masked here — leave blank to keep the current key.
+          </p>
+        </div>
+
+        <button onClick={saveKeys} disabled={savingKeys}
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-60">
+          {savingKeys ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+          Save Keys
+        </button>
       </div>
 
       {/* "See How It Works" Video */}
